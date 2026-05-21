@@ -5,6 +5,57 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>NovaDEX — Stablecoin DEX on Arc</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+  <script type="module">
+    import { createAppKit } from 'https://esm.sh/@reown/appkit@1.6.8'
+    import { EthersAdapter } from 'https://esm.sh/@reown/appkit-adapter-ethers@1.6.8'
+
+    const ARC_TESTNET = {
+      id: 5042002,
+      name: 'Arc Testnet',
+      network: 'arc-testnet',
+      nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
+      rpcUrls: {
+        default: { http: ['https://rpc.testnet.arc.network'] },
+        public: { http: ['https://rpc.testnet.arc.network'] }
+      },
+      blockExplorers: {
+        default: { name: 'ArcScan', url: 'https://testnet.arcscan.app' }
+      },
+      testnet: true
+    }
+
+    const projectId = '066280142f1f209b35d1a70850ce32c9'
+
+    const modal = createAppKit({
+      adapters: [new EthersAdapter()],
+      networks: [ARC_TESTNET],
+      projectId,
+      features: { analytics: false },
+      themeMode: 'dark',
+      themeVariables: {
+        '--w3m-accent': '#7b61ff',
+        '--w3m-border-radius-master': '12px'
+      }
+    })
+
+    window.modal = modal
+
+    modal.subscribeAccount(account => {
+      if (account.isConnected && account.address) {
+        const short = account.address.slice(0,6) + '...' + account.address.slice(-4)
+        const btn = document.getElementById('connectBtn')
+        if (btn) {
+          btn.textContent = '✅ ' + short
+          btn.style.background = 'rgba(0,212,255,0.1)'
+          btn.style.border = '1px solid rgba(0,212,255,0.3)'
+          btn.style.color = '#00d4ff'
+        }
+        showStatus('Wallet connected to Arc Testnet!', 'success')
+      }
+    })
+
+    window.openModal = () => modal.open()
+  </script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -53,15 +104,6 @@
     }
 
     .connect-btn:hover { opacity: 0.85; }
-
-    .wallet-address {
-      font-size: 13px;
-      color: #00d4ff;
-      background: rgba(0,212,255,0.1);
-      padding: 8px 16px;
-      border-radius: 10px;
-      border: 1px solid rgba(0,212,255,0.2);
-    }
 
     .main {
       display: flex;
@@ -200,10 +242,7 @@
     }
 
     .swap-btn:hover { opacity: 0.88; }
-    .swap-btn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
+    .swap-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
     .status-box {
       margin-top: 14px;
@@ -273,6 +312,7 @@
       font-size: 12px;
       color: #333355;
       padding-bottom: 30px;
+      text-align: center;
     }
   </style>
 </head>
@@ -280,7 +320,7 @@
 
   <div class="header">
     <div class="logo">NovaDEX</div>
-    <button class="connect-btn" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
+    <button class="connect-btn" id="connectBtn" onclick="openModal()">Connect Wallet</button>
   </div>
 
   <div class="main">
@@ -289,7 +329,6 @@
     <p class="subtitle">The premier stablecoin DEX on Arc — powered by USDC & EURC</p>
 
     <div class="swap-card">
-
       <div class="swap-label">You Pay</div>
       <div class="token-row">
         <select id="tokenIn">
@@ -317,14 +356,13 @@
         <span id="rateDisplay">1 USDC = 0.92 EURC</span>
       </div>
 
-      <button class="swap-btn" id="swapBtn" onclick="executeSwap()">Connect Wallet to Swap</button>
-
+      <button class="swap-btn" onclick="executeSwap()">Swap</button>
       <div class="status-box" id="statusBox"></div>
     </div>
 
     <div class="stats-row">
       <div class="stat-card">
-        <div class="stat-value" id="statTvl">$0</div>
+        <div class="stat-value">$0</div>
         <div class="stat-label">Total Liquidity</div>
       </div>
       <div class="stat-card">
@@ -337,105 +375,60 @@
       </div>
     </div>
 
-    <div class="footer">NovaDEX — Built on Arc Testnet · Contract: 0xd7EB001b35373353f0d52E1AEf9a597051034A1F</div>
+    <div class="footer">
+      NovaDEX — Built on Arc Testnet<br/>
+      Contract: 0xd7EB001b35373353f0d52E1AEf9a597051034A1F
+    </div>
   </div>
 
   <script>
-    const FACTORY_ADDRESS = "0xd7EB001b35373353f0d52E1AEf9a597051034A1F";
-    const ARC_CHAIN_ID = "0x4CA052"; // 5042002 in hex
-
-    // Testnet token addresses (update once you deploy test tokens)
-    const TOKENS = {
-  USDC: "0x3600000000000000000000000000000000000000",
-  EURC: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a"
-};
-    };
-
-    const RATES = { "USDC-EURC": 0.92, "EURC-USDC": 1.087 };
-
-    let provider, signer, walletAddress;
-
-    async function connectWallet() {
-      if (typeof window.ethereum === "undefined") {
-        showStatus("MetaMask not found. Please install it.", "error");
-        return;
-      }
-      try {
-        provider = new ethers.BrowserProvider(window.ethereum);
-        await provider.send("eth_requestAccounts", []);
-
-        const network = await provider.getNetwork();
-        if (network.chainId !== BigInt(5042002)) {
-          showStatus("Please switch MetaMask to Arc Testnet", "error");
-          return;
-        }
-
-        signer = await provider.getSigner();
-        walletAddress = await signer.getAddress();
-
-        const short = walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4);
-        document.getElementById("connectBtn").outerHTML =
-          `<div class="wallet-address">✅ ${short}</div>`;
-        document.getElementById("swapBtn").textContent = "Swap";
-        document.getElementById("swapBtn").disabled = false;
-
-        showStatus("Wallet connected to Arc Testnet!", "success");
-      } catch (err) {
-        showStatus("Connection failed: " + err.message, "error");
-      }
-    }
+    const RATES = { 'USDC-EURC': 0.92, 'EURC-USDC': 1.087 }
 
     function updateRate() {
-      const tokenIn = document.getElementById("tokenIn").value;
-      const tokenOut = document.getElementById("tokenOut").value;
-      const amountIn = parseFloat(document.getElementById("amountIn").value) || 0;
-      const key = `${tokenIn}-${tokenOut}`;
-      const rate = RATES[key] || 1;
-      document.getElementById("amountOut").value = amountIn > 0 ? (amountIn * rate).toFixed(4) : "";
-      document.getElementById("rateDisplay").textContent = `1 ${tokenIn} = ${rate} ${tokenOut}`;
+      const tokenIn = document.getElementById('tokenIn').value
+      const tokenOut = document.getElementById('tokenOut').value
+      const amountIn = parseFloat(document.getElementById('amountIn').value) || 0
+      const rate = RATES[`${tokenIn}-${tokenOut}`] || 1
+      document.getElementById('amountOut').value = amountIn > 0 ? (amountIn * rate).toFixed(4) : ''
+      document.getElementById('rateDisplay').textContent = `1 ${tokenIn} = ${rate} ${tokenOut}`
     }
 
     function flipTokens() {
-      const tokenIn = document.getElementById("tokenIn");
-      const tokenOut = document.getElementById("tokenOut");
-      const temp = tokenIn.value;
-      tokenIn.value = tokenOut.value;
-      tokenOut.value = temp;
-      document.getElementById("amountIn").value = "";
-      document.getElementById("amountOut").value = "";
-      updateRate();
+      const tokenIn = document.getElementById('tokenIn')
+      const tokenOut = document.getElementById('tokenOut')
+      const temp = tokenIn.value
+      tokenIn.value = tokenOut.value
+      tokenOut.value = temp
+      document.getElementById('amountIn').value = ''
+      document.getElementById('amountOut').value = ''
+      updateRate()
     }
 
     async function executeSwap() {
-      if (!signer) {
-        showStatus("Please connect your wallet first.", "error");
-        return;
-      }
-      const amountIn = document.getElementById("amountIn").value;
+      const amountIn = document.getElementById('amountIn').value
       if (!amountIn || parseFloat(amountIn) <= 0) {
-        showStatus("Please enter an amount to swap.", "error");
-        return;
+        showStatus('Please enter an amount to swap.', 'error')
+        return
       }
-
-      showStatus("⏳ Swap submitted — confirming on Arc Testnet...", "pending");
-
+      if (!window.modal?.getAccount()?.isConnected) {
+        showStatus('Please connect your wallet first.', 'error')
+        window.openModal()
+        return
+      }
+      showStatus('⏳ Swap submitted — confirming on Arc Testnet...', 'pending')
       setTimeout(() => {
-        const tokenIn = document.getElementById("tokenIn").value;
-        const tokenOut = document.getElementById("tokenOut").value;
-        const amountOut = document.getElementById("amountOut").value;
-        showStatus(
-          `✅ Swapped ${amountIn} ${tokenIn} → ${amountOut} ${tokenOut} successfully!`,
-          "success"
-        );
-        document.getElementById("statVol").textContent =
-          "$" + (parseFloat(amountIn) * 1000).toLocaleString();
-      }, 2000);
+        const tokenIn = document.getElementById('tokenIn').value
+        const tokenOut = document.getElementById('tokenOut').value
+        const amountOut = document.getElementById('amountOut').value
+        showStatus(`✅ Swapped ${amountIn} ${tokenIn} → ${amountOut} ${tokenOut}!`, 'success')
+        document.getElementById('statVol').textContent = '$' + (parseFloat(amountIn) * 1000).toLocaleString()
+      }, 2000)
     }
 
     function showStatus(msg, type) {
-      const box = document.getElementById("statusBox");
-      box.textContent = msg;
-      box.className = "status-box " + type;
+      const box = document.getElementById('statusBox')
+      box.textContent = msg
+      box.className = 'status-box ' + type
     }
   </script>
 
