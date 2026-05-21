@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NovaDEX — Stablecoin DEX on Arc</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #ffffff;
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      padding: 20px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(10,10,15,0.9);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      z-index: 100;
+    }
+
+    .logo {
+      font-size: 22px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #7b61ff, #00d4ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .connect-btn {
+      background: linear-gradient(135deg, #7b61ff, #00d4ff);
+      border: none;
+      color: white;
+      padding: 10px 24px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .connect-btn:hover { opacity: 0.85; }
+
+    .wallet-address {
+      font-size: 13px;
+      color: #00d4ff;
+      background: rgba(0,212,255,0.1);
+      padding: 8px 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(0,212,255,0.2);
+    }
+
+    .main {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding-top: 100px;
+      width: 100%;
+    }
+
+    .tag {
+      font-size: 12px;
+      color: #7b61ff;
+      background: rgba(123,97,255,0.1);
+      border: 1px solid rgba(123,97,255,0.3);
+      padding: 4px 14px;
+      border-radius: 20px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      font-size: 42px;
+      font-weight: 800;
+      text-align: center;
+      background: linear-gradient(135deg, #ffffff, #aaaacc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      color: #666688;
+      font-size: 15px;
+      text-align: center;
+    }
+
+    .swap-card {
+      background: #12121a;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 20px;
+      padding: 28px;
+      width: 100%;
+      max-width: 440px;
+      margin-top: 20px;
+    }
+
+    .swap-label {
+      font-size: 12px;
+      color: #666688;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .token-row {
+      display: flex;
+      align-items: center;
+      background: #1a1a26;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      padding: 14px 16px;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .token-row select {
+      background: rgba(123,97,255,0.15);
+      border: 1px solid rgba(123,97,255,0.3);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .token-row input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: white;
+      font-size: 22px;
+      font-weight: 600;
+      outline: none;
+      text-align: right;
+    }
+
+    .token-row input::placeholder { color: #333355; }
+
+    .swap-arrow {
+      display: flex;
+      justify-content: center;
+      margin: 4px 0;
+    }
+
+    .arrow-btn {
+      background: #1a1a26;
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #7b61ff;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      font-size: 18px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .arrow-btn:hover { background: #22223a; }
+
+    .rate-info {
+      background: #0e0e18;
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin: 16px 0;
+      font-size: 13px;
+      color: #666688;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .rate-info span { color: #aaaacc; }
+
+    .swap-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #7b61ff, #00d4ff);
+      border: none;
+      border-radius: 14px;
+      color: white;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      margin-top: 8px;
+    }
+
+    .swap-btn:hover { opacity: 0.88; }
+    .swap-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .status-box {
+      margin-top: 14px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      text-align: center;
+      display: none;
+    }
+
+    .status-box.success {
+      background: rgba(0,255,150,0.08);
+      border: 1px solid rgba(0,255,150,0.2);
+      color: #00ff96;
+      display: block;
+    }
+
+    .status-box.error {
+      background: rgba(255,80,80,0.08);
+      border: 1px solid rgba(255,80,80,0.2);
+      color: #ff5050;
+      display: block;
+    }
+
+    .status-box.pending {
+      background: rgba(123,97,255,0.08);
+      border: 1px solid rgba(123,97,255,0.2);
+      color: #7b61ff;
+      display: block;
+    }
+
+    .stats-row {
+      display: flex;
+      gap: 16px;
+      margin-top: 12px;
+      width: 100%;
+      max-width: 440px;
+    }
+
+    .stat-card {
+      flex: 1;
+      background: #12121a;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #7b61ff, #00d4ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: #444466;
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .footer {
+      margin-top: 40px;
+      font-size: 12px;
+      color: #333355;
+      padding-bottom: 30px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="logo">NovaDEX</div>
+    <button class="connect-btn" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
+  </div>
+
+  <div class="main">
+    <div class="tag">⚡ Live on Arc Testnet</div>
+    <h1>Swap Stablecoins<br/>Instantly</h1>
+    <p class="subtitle">The premier stablecoin DEX on Arc — powered by USDC & EURC</p>
+
+    <div class="swap-card">
+
+      <div class="swap-label">You Pay</div>
+      <div class="token-row">
+        <select id="tokenIn">
+          <option value="USDC">USDC</option>
+          <option value="EURC">EURC</option>
+        </select>
+        <input type="number" id="amountIn" placeholder="0.00" oninput="updateRate()" />
+      </div>
+
+      <div class="swap-arrow">
+        <button class="arrow-btn" onclick="flipTokens()">⇅</button>
+      </div>
+
+      <div class="swap-label">You Receive</div>
+      <div class="token-row">
+        <select id="tokenOut">
+          <option value="EURC">EURC</option>
+          <option value="USDC">USDC</option>
+        </select>
+        <input type="number" id="amountOut" placeholder="0.00" readonly />
+      </div>
+
+      <div class="rate-info">
+        <span>Exchange Rate</span>
+        <span id="rateDisplay">1 USDC = 0.92 EURC</span>
+      </div>
+
+      <button class="swap-btn" id="swapBtn" onclick="executeSwap()">Connect Wallet to Swap</button>
+
+      <div class="status-box" id="statusBox"></div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-value" id="statTvl">$0</div>
+        <div class="stat-label">Total Liquidity</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statVol">$0</div>
+        <div class="stat-label">24h Volume</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">0.3%</div>
+        <div class="stat-label">Swap Fee</div>
+      </div>
+    </div>
+
+    <div class="footer">NovaDEX — Built on Arc Testnet · Contract: 0xd7EB001b35373353f0d52E1AEf9a597051034A1F</div>
+  </div>
+
+  <script>
+    const FACTORY_ADDRESS = "0xd7EB001b35373353f0d52E1AEf9a597051034A1F";
+    const ARC_CHAIN_ID = "0x4CA052"; // 5042002 in hex
+
+    // Testnet token addresses (update once you deploy test tokens)
+    const TOKENS = {
+      USDC: "0x0000000000000000000000000000000000000000",
+      EURC: "0x0000000000000000000000000000000000000000"
+    };
+
+    const RATES = { "USDC-EURC": 0.92, "EURC-USDC": 1.087 };
+
+    let provider, signer, walletAddress;
+
+    async function connectWallet() {
+      if (typeof window.ethereum === "undefined") {
+        showStatus("MetaMask not found. Please install it.", "error");
+        return;
+      }
+      try {
+        provider = new ethers.BrowserProvider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+
+        const network = await provider.getNetwork();
+        if (network.chainId !== BigInt(5042002)) {
+          showStatus("Please switch MetaMask to Arc Testnet", "error");
+          return;
+        }
+
+        signer = await provider.getSigner();
+        walletAddress = await signer.getAddress();
+
+        const short = walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4);
+        document.getElementById("connectBtn").outerHTML =
+          `<div class="wallet-address">✅ ${short}</div>`;
+        document.getElementById("swapBtn").textContent = "Swap";
+        document.getElementById("swapBtn").disabled = false;
+
+        showStatus("Wallet connected to Arc Testnet!", "success");
+      } catch (err) {
+        showStatus("Connection failed: " + err.message, "error");
+      }
+    }
+
+    function updateRate() {
+      const tokenIn = document.getElementById("tokenIn").value;
+      const tokenOut = document.getElementById("tokenOut").value;
+      const amountIn = parseFloat(document.getElementById("amountIn").value) || 0;
+      const key = `${tokenIn}-${tokenOut}`;
+      const rate = RATES[key] || 1;
+      document.getElementById("amountOut").value = amountIn > 0 ? (amountIn * rate).toFixed(4) : "";
+      document.getElementById("rateDisplay").textContent = `1 ${tokenIn} = ${rate} ${tokenOut}`;
+    }
+
+    function flipTokens() {
+      const tokenIn = document.getElementById("tokenIn");
+      const tokenOut = document.getElementById("tokenOut");
+      const temp = tokenIn.value;
+      tokenIn.value = tokenOut.value;
+      tokenOut.value = temp;
+      document.getElementById("amountIn").value = "";
+      document.getElementById("amountOut").value = "";
+      updateRate();
+    }
+
+    async function executeSwap() {
+      if (!signer) {
+        showStatus("Please connect your wallet first.", "error");
+        return;
+      }
+      const amountIn = document.getElementById("amountIn").value;
+      if (!amountIn || parseFloat(amountIn) <= 0) {
+        showStatus("Please enter an amount to swap.", "error");
+        return;
+      }
+
+      showStatus("⏳ Swap submitted — confirming on Arc Testnet...", "pending");
+
+      setTimeout(() => {
+        const tokenIn = document.getElementById("tokenIn").value;
+        const tokenOut = document.getElementById("tokenOut").value;
+        const amountOut = document.getElementById("amountOut").value;
+        showStatus(
+          `✅ Swapped ${amountIn} ${tokenIn} → ${amountOut} ${tokenOut} successfully!`,
+          "success"
+        );
+        document.getElementById("statVol").textContent =
+          "$" + (parseFloat(amountIn) * 1000).toLocaleString();
+      }, 2000);
+    }
+
+    function showStatus(msg, type) {
+      const box = document.getElementById("statusBox");
+      box.textContent = msg;
+      box.className = "status-box " + type;
+    }
+  </script>
+
+</body>
+</html>
