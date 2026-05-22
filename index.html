@@ -5,57 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>NovaDEX — Stablecoin DEX on Arc</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
-  <script type="module">
-    import { createAppKit } from 'https://esm.sh/@reown/appkit@1.6.8'
-    import { EthersAdapter } from 'https://esm.sh/@reown/appkit-adapter-ethers@1.6.8'
-
-    const ARC_TESTNET = {
-      id: 5042002,
-      name: 'Arc Testnet',
-      network: 'arc-testnet',
-      nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
-      rpcUrls: {
-        default: { http: ['https://rpc.testnet.arc.network'] },
-        public: { http: ['https://rpc.testnet.arc.network'] }
-      },
-      blockExplorers: {
-        default: { name: 'ArcScan', url: 'https://testnet.arcscan.app' }
-      },
-      testnet: true
-    }
-
-    const projectId = '066280142f1f209b35d1a70850ce32c9'
-
-    const modal = createAppKit({
-      adapters: [new EthersAdapter()],
-      networks: [ARC_TESTNET],
-      projectId,
-      features: { analytics: false },
-      themeMode: 'dark',
-      themeVariables: {
-        '--w3m-accent': '#7b61ff',
-        '--w3m-border-radius-master': '12px'
-      }
-    })
-
-    window.modal = modal
-
-    modal.subscribeAccount(account => {
-      if (account.isConnected && account.address) {
-        const short = account.address.slice(0,6) + '...' + account.address.slice(-4)
-        const btn = document.getElementById('connectBtn')
-        if (btn) {
-          btn.textContent = '✅ ' + short
-          btn.style.background = 'rgba(0,212,255,0.1)'
-          btn.style.border = '1px solid rgba(0,212,255,0.3)'
-          btn.style.color = '#00d4ff'
-        }
-        showStatus('Wallet connected to Arc Testnet!', 'success')
-      }
-    })
-
-    window.openModal = () => modal.open()
-  </script>
+  <script src="https://unpkg.com/@web3modal/ethereum@2.7.1/dist/index.umd.js"></script>
+  <script src="https://unpkg.com/@web3modal/html@2.7.1/dist/index.umd.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -105,6 +56,15 @@
 
     .connect-btn:hover { opacity: 0.85; }
 
+    .connected-badge {
+      font-size: 13px;
+      color: #00d4ff;
+      background: rgba(0,212,255,0.1);
+      padding: 8px 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(0,212,255,0.2);
+    }
+
     .main {
       display: flex;
       flex-direction: column;
@@ -112,6 +72,8 @@
       gap: 12px;
       padding-top: 100px;
       width: 100%;
+      padding-left: 16px;
+      padding-right: 16px;
     }
 
     .tag {
@@ -242,7 +204,6 @@
     }
 
     .swap-btn:hover { opacity: 0.88; }
-    .swap-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
     .status-box {
       margin-top: 14px;
@@ -314,13 +275,170 @@
       padding-bottom: 30px;
       text-align: center;
     }
+
+    /* Wallet Modal Overlay */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .wallet-modal {
+      background: #12121a;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 24px;
+      padding: 28px;
+      width: 100%;
+      max-width: 380px;
+      margin: 16px;
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 6px;
+    }
+
+    .modal-subtitle {
+      font-size: 13px;
+      color: #666688;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .wallet-option {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      background: #1a1a26;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      width: 100%;
+      text-align: left;
+    }
+
+    .wallet-option:hover {
+      border-color: rgba(123,97,255,0.4);
+      background: #1e1e30;
+    }
+
+    .wallet-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .wallet-info { flex: 1; }
+
+    .wallet-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: #ffffff;
+    }
+
+    .wallet-desc {
+      font-size: 12px;
+      color: #666688;
+      margin-top: 2px;
+    }
+
+    .wallet-arrow { color: #444466; font-size: 18px; }
+
+    .modal-close {
+      width: 100%;
+      padding: 12px;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      color: #666688;
+      font-size: 14px;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: border-color 0.2s;
+    }
+
+    .modal-close:hover { border-color: rgba(255,255,255,0.2); color: #aaaacc; }
   </style>
 </head>
 <body>
 
   <div class="header">
     <div class="logo">NovaDEX</div>
-    <button class="connect-btn" id="connectBtn" onclick="openModal()">Connect Wallet</button>
+    <button class="connect-btn" id="connectBtn" onclick="openWalletModal()">Connect Wallet</button>
+  </div>
+
+  <!-- Wallet Selection Modal -->
+  <div class="modal-overlay" id="walletModal">
+    <div class="wallet-modal">
+      <div class="modal-title">Connect a Wallet</div>
+      <div class="modal-subtitle">Choose your preferred wallet to continue</div>
+
+      <button class="wallet-option" onclick="connectWithProvider()">
+        <div class="wallet-icon" style="background:#f6851b20">🦊</div>
+        <div class="wallet-info">
+          <div class="wallet-name">MetaMask</div>
+          <div class="wallet-desc">Connect using browser extension</div>
+        </div>
+        <div class="wallet-arrow">›</div>
+      </button>
+
+      <button class="wallet-option" onclick="connectWithProvider()">
+        <div class="wallet-icon" style="background:#8b5cf620">🐇</div>
+        <div class="wallet-info">
+          <div class="wallet-name">Rabby Wallet</div>
+          <div class="wallet-desc">Connect using browser extension</div>
+        </div>
+        <div class="wallet-arrow">›</div>
+      </button>
+
+      <button class="wallet-option" onclick="connectWithProvider()">
+        <div class="wallet-icon" style="background:#2563eb20">💎</div>
+        <div class="wallet-info">
+          <div class="wallet-name">Zerion</div>
+          <div class="wallet-desc">Connect using browser extension</div>
+        </div>
+        <div class="wallet-arrow">›</div>
+      </button>
+
+      <button class="wallet-option" onclick="connectWithProvider()">
+        <div class="wallet-icon" style="background:#1652f020">🔵</div>
+        <div class="wallet-info">
+          <div class="wallet-name">Coinbase Wallet</div>
+          <div class="wallet-desc">Connect using browser extension</div>
+        </div>
+        <div class="wallet-arrow">›</div>
+      </button>
+
+      <button class="wallet-option" onclick="connectWithProvider()">
+        <div class="wallet-icon" style="background:#ffffff10">🔗</div>
+        <div class="wallet-info">
+          <div class="wallet-name">Other EVM Wallet</div>
+          <div class="wallet-desc">Any injected EVM wallet</div>
+        </div>
+        <div class="wallet-arrow">›</div>
+      </button>
+
+      <button class="modal-close" onclick="closeWalletModal()">Cancel</button>
+    </div>
   </div>
 
   <div class="main">
@@ -383,6 +501,68 @@
 
   <script>
     const RATES = { 'USDC-EURC': 0.92, 'EURC-USDC': 1.087 }
+    const ARC_CHAIN_ID = 5042002
+    let walletConnected = false
+    let walletAddress = null
+
+    function openWalletModal() {
+      document.getElementById('walletModal').classList.add('active')
+    }
+
+    function closeWalletModal() {
+      document.getElementById('walletModal').classList.remove('active')
+    }
+
+    async function connectWithProvider() {
+      closeWalletModal()
+
+      if (typeof window.ethereum === 'undefined') {
+        showStatus('No EVM wallet found. Please install MetaMask, Rabby, or Zerion extension.', 'error')
+        return
+      }
+
+      try {
+        const provider = new ethers.BrowserProvider(window.ethereum)
+        await provider.send('eth_requestAccounts', [])
+
+        // Switch to Arc Testnet automatically
+        try {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x4CA052' }]
+          })
+        } catch (switchErr) {
+          // Chain not added yet — add it automatically
+          if (switchErr.code === 4902) {
+            await window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [{
+                chainId: '0x4CA052',
+                chainName: 'Arc Testnet',
+                nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
+                rpcUrls: ['https://rpc.testnet.arc.network'],
+                blockExplorerUrls: ['https://testnet.arcscan.app']
+              }]
+            })
+          }
+        }
+
+        const signer = await provider.getSigner()
+        walletAddress = await signer.getAddress()
+        walletConnected = true
+
+        const short = walletAddress.slice(0,6) + '...' + walletAddress.slice(-4)
+        document.getElementById('connectBtn').textContent = '✅ ' + short
+        document.getElementById('connectBtn').style.background = 'rgba(0,212,255,0.1)'
+        document.getElementById('connectBtn').style.border = '1px solid rgba(0,212,255,0.3)'
+        document.getElementById('connectBtn').style.color = '#00d4ff'
+
+        showStatus('Wallet connected to Arc Testnet! 🎉', 'success')
+
+      } catch (err) {
+        showStatus('Connection failed: ' + err.message, 'error')
+      }
+    }
 
     function updateRate() {
       const tokenIn = document.getElementById('tokenIn').value
@@ -410,9 +590,9 @@
         showStatus('Please enter an amount to swap.', 'error')
         return
       }
-      if (!window.modal?.getAccount()?.isConnected) {
+      if (!walletConnected) {
         showStatus('Please connect your wallet first.', 'error')
-        window.openModal()
+        openWalletModal()
         return
       }
       showStatus('⏳ Swap submitted — confirming on Arc Testnet...', 'pending')
@@ -430,6 +610,11 @@
       box.textContent = msg
       box.className = 'status-box ' + type
     }
+
+    // Close modal when clicking outside
+    document.getElementById('walletModal').addEventListener('click', function(e) {
+      if (e.target === this) closeWalletModal()
+    })
   </script>
 
 </body>
