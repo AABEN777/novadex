@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -638,7 +637,7 @@
           amountInRaw,
           minOutRaw,
           walletAddress,
-          { gasLimit: 500000n }
+          { gasLimit: 500000n, gasPrice: feeData.gasPrice }
         )
         showStatus('Confirming transaction... ⏳', 'pending')
         const receipt = await swapTx.wait()
