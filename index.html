@@ -1,26 +1,96 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>NovaDEX — Stablecoin DEX on Arc</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
-    body{background:#0a0a0f;color:#fff;font-family:'Segoe UI',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
-    .header{position:fixed;top:0;left:0;right:0;padding:20px 40px;display:flex;justify-content:space-between;align-items:center;background:rgba(10,10,15,0.9);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,0.05);z-index:100}
+    html{scroll-behavior:smooth}
+    body{background:#0a0a0f;color:#fff;font-family:'Segoe UI',sans-serif;min-height:100vh}
+
+    /* ── HEADER ── */
+    .header{position:fixed;top:0;left:0;right:0;padding:18px 40px;display:flex;justify-content:space-between;align-items:center;background:rgba(10,10,15,0.92);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,0.05);z-index:200}
     .logo{font-size:22px;font-weight:700;background:linear-gradient(135deg,#7b61ff,#00d4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-    .header-right{display:flex;align-items:center;gap:10px}
-    .connect-btn{background:linear-gradient(135deg,#7b61ff,#00d4ff);border:none;color:white;padding:10px 24px;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer}
+    .nav{display:flex;align-items:center;gap:10px}
+    .nav-link{background:transparent;border:1px solid rgba(255,255,255,0.1);color:#aaaacc;padding:8px 18px;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;transition:all 0.2s;text-decoration:none}
+    .nav-link:hover{border-color:rgba(123,97,255,0.5);color:#fff}
+    .nav-link.active{background:linear-gradient(135deg,#7b61ff,#00d4ff);border-color:transparent;color:#fff}
+    .connect-btn{background:linear-gradient(135deg,#7b61ff,#00d4ff);border:none;color:white;padding:10px 22px;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer}
     .connect-btn:hover{opacity:0.85}
-    .connected-badge{font-size:13px;color:#00d4ff;background:rgba(0,212,255,0.1);padding:8px 16px;border-radius:10px;border:1px solid rgba(0,212,255,0.2)}
-    .disconnect-btn{background:rgba(255,80,80,0.1);border:1px solid rgba(255,80,80,0.25);color:#ff5050;padding:8px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer}
+    .connected-badge{font-size:13px;color:#00d4ff;background:rgba(0,212,255,0.1);padding:8px 14px;border-radius:10px;border:1px solid rgba(0,212,255,0.2)}
+    .disconnect-btn{background:rgba(255,80,80,0.1);border:1px solid rgba(255,80,80,0.25);color:#ff5050;padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer}
     .disconnect-btn:hover{background:rgba(255,80,80,0.2)}
-    .main{display:flex;flex-direction:column;align-items:center;gap:12px;padding-top:100px;width:100%;padding-left:16px;padding-right:16px}
-    .tag{font-size:12px;color:#7b61ff;background:rgba(123,97,255,0.1);border:1px solid rgba(123,97,255,0.3);padding:4px 14px;border-radius:20px;letter-spacing:1px;text-transform:uppercase}
-    h1{font-size:42px;font-weight:800;text-align:center;background:linear-gradient(135deg,#ffffff,#aaaacc);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-    .subtitle{color:#666688;font-size:15px;text-align:center}
-    .swap-card{background:#12121a;border:1px solid rgba(255,255,255,0.07);border-radius:20px;padding:28px;width:100%;max-width:440px;margin-top:20px}
+    .header-right{display:flex;align-items:center;gap:10px}
+
+    /* ── PAGES ── */
+    .page{display:none;min-height:100vh;padding-top:80px}
+    .page.active{display:block}
+
+    /* ── HOME PAGE ── */
+    .hero{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:90vh;padding:60px 20px;text-align:center}
+    .hero-tag{font-size:12px;color:#7b61ff;background:rgba(123,97,255,0.1);border:1px solid rgba(123,97,255,0.3);padding:5px 16px;border-radius:20px;letter-spacing:1px;text-transform:uppercase;margin-bottom:24px}
+    .hero h1{font-size:58px;font-weight:900;line-height:1.1;background:linear-gradient(135deg,#ffffff,#aaaacc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:20px}
+    .hero p{font-size:18px;color:#666688;max-width:560px;line-height:1.7;margin-bottom:40px}
+    .hero-btns{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+    .btn-primary{background:linear-gradient(135deg,#7b61ff,#00d4ff);border:none;color:white;padding:14px 32px;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;transition:opacity 0.2s}
+    .btn-primary:hover{opacity:0.88}
+    .btn-secondary{background:transparent;border:1px solid rgba(255,255,255,0.15);color:#aaaacc;padding:14px 32px;border-radius:14px;font-size:16px;font-weight:600;cursor:pointer;transition:all 0.2s}
+    .btn-secondary:hover{border-color:rgba(123,97,255,0.5);color:#fff}
+
+    /* Stats bar */
+    .stats-bar{display:flex;gap:0;border-top:1px solid rgba(255,255,255,0.05);border-bottom:1px solid rgba(255,255,255,0.05)}
+    .stat-item{flex:1;padding:28px 20px;text-align:center;border-right:1px solid rgba(255,255,255,0.05)}
+    .stat-item:last-child{border-right:none}
+    .stat-num{font-size:28px;font-weight:800;background:linear-gradient(135deg,#7b61ff,#00d4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .stat-desc{font-size:13px;color:#444466;margin-top:4px}
+
+    /* Features */
+    .section{padding:80px 40px;max-width:1100px;margin:0 auto}
+    .section-tag{font-size:12px;color:#7b61ff;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px}
+    .section h2{font-size:38px;font-weight:800;background:linear-gradient(135deg,#ffffff,#aaaacc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:16px}
+    .section p{color:#666688;font-size:16px;line-height:1.7;max-width:600px;margin-bottom:48px}
+    .features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+    .feature-card{background:#12121a;border:1px solid rgba(255,255,255,0.06);border-radius:20px;padding:28px;transition:border-color 0.2s}
+    .feature-card:hover{border-color:rgba(123,97,255,0.3)}
+    .feature-icon{font-size:32px;margin-bottom:16px}
+    .feature-title{font-size:18px;font-weight:700;margin-bottom:10px}
+    .feature-desc{font-size:14px;color:#666688;line-height:1.6}
+
+    /* How it works */
+    .steps-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px}
+    .step-card{background:#12121a;border:1px solid rgba(255,255,255,0.06);border-radius:20px;padding:28px;position:relative}
+    .step-num{font-size:42px;font-weight:900;background:linear-gradient(135deg,#7b61ff,#00d4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:12px}
+    .step-title{font-size:16px;font-weight:700;margin-bottom:8px}
+    .step-desc{font-size:13px;color:#666688;line-height:1.6}
+
+    /* Tokens */
+    .tokens-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+    .token-card{background:#12121a;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:20px;display:flex;align-items:center;gap:14px}
+    .token-logo{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;flex-shrink:0}
+    .token-info .name{font-size:15px;font-weight:700}
+    .token-info .desc{font-size:12px;color:#666688;margin-top:2px}
+
+    /* CTA */
+    .cta-section{background:linear-gradient(135deg,rgba(123,97,255,0.1),rgba(0,212,255,0.05));border-top:1px solid rgba(123,97,255,0.15);border-bottom:1px solid rgba(123,97,255,0.15);padding:80px 40px;text-align:center}
+    .cta-section h2{font-size:38px;font-weight:800;background:linear-gradient(135deg,#ffffff,#aaaacc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:16px}
+    .cta-section p{color:#666688;font-size:16px;margin-bottom:32px}
+
+    /* Footer */
+    .footer{padding:40px;text-align:center;border-top:1px solid rgba(255,255,255,0.05);font-size:12px;color:#333355}
+    .footer a{color:#7b61ff;text-decoration:none}
+    .footer a:hover{color:#00d4ff}
+
+    /* ── SWAP PAGE ── */
+    .swap-page{display:flex;flex-direction:column;align-items:center;padding:40px 16px 60px;gap:16px}
+    .swap-page-title{font-size:28px;font-weight:800;background:linear-gradient(135deg,#ffffff,#aaaacc);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .swap-page-sub{font-size:14px;color:#666688;margin-top:4px;margin-bottom:8px}
+    .faucet-bar{display:flex;align-items:center;gap:10px;background:#12121a;border:1px solid rgba(123,97,255,0.2);border-radius:14px;padding:12px 20px;width:100%;max-width:440px}
+    .faucet-bar span{flex:1;font-size:13px;color:#666688}
+    .faucet-btn{background:linear-gradient(135deg,#7b61ff,#00d4ff);border:none;color:white;padding:8px 16px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;text-decoration:none;display:inline-block}
+    .faucet-btn:hover{opacity:0.85}
+    .swap-card{background:#12121a;border:1px solid rgba(255,255,255,0.07);border-radius:20px;padding:28px;width:100%;max-width:440px}
     .swap-label{font-size:12px;color:#666688;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;display:flex;justify-content:space-between;align-items:center}
     .balance-label{font-size:12px;color:#444466}
     .balance-label span{color:#7b61ff;cursor:pointer;font-weight:600}
@@ -41,12 +111,13 @@
     .status-box.success{background:rgba(0,255,150,0.08);border:1px solid rgba(0,255,150,0.2);color:#00ff96;display:block}
     .status-box.error{background:rgba(255,80,80,0.08);border:1px solid rgba(255,80,80,0.2);color:#ff5050;display:block}
     .status-box.pending{background:rgba(123,97,255,0.08);border:1px solid rgba(123,97,255,0.2);color:#7b61ff;display:block}
-    .stats-row{display:flex;gap:16px;margin-top:12px;width:100%;max-width:440px}
-    .stat-card{flex:1;background:#12121a;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:16px;text-align:center}
-    .stat-value{font-size:20px;font-weight:700;background:linear-gradient(135deg,#7b61ff,#00d4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-    .stat-label{font-size:11px;color:#444466;margin-top:4px;text-transform:uppercase;letter-spacing:0.5px}
-    .footer{margin-top:40px;font-size:12px;color:#333355;padding-bottom:30px;text-align:center}
-    .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);z-index:999;align-items:center;justify-content:center}
+    .swap-stats{display:flex;gap:16px;width:100%;max-width:440px}
+    .swap-stat{flex:1;background:#12121a;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:14px;text-align:center}
+    .swap-stat-val{font-size:18px;font-weight:700;background:linear-gradient(135deg,#7b61ff,#00d4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .swap-stat-label{font-size:11px;color:#444466;margin-top:3px;text-transform:uppercase;letter-spacing:0.5px}
+
+    /* ── MODALS ── */
+    .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);z-index:999;align-items:center;justify-content:center}
     .modal-overlay.active{display:flex}
     .wallet-modal,.confirm-modal{background:#12121a;border:1px solid rgba(255,255,255,0.08);border-radius:24px;padding:28px;width:100%;max-width:380px;margin:16px}
     .modal-title{font-size:18px;font-weight:700;text-align:center;margin-bottom:6px}
@@ -68,7 +139,7 @@
     .confirm-row .value.green{color:#00ff96}
     .confirm-arrows{text-align:center;font-size:28px;padding:16px 0;color:#7b61ff}
     .confirm-amount{text-align:center;margin:8px 0 20px}
-    .confirm-amount .big{font-size:28px;font-weight:800;color:#fff}
+    .confirm-amount .big{font-size:26px;font-weight:800;color:#fff}
     .confirm-amount .small{font-size:13px;color:#666688;margin-top:4px}
     .confirm-btns{display:flex;gap:10px;margin-top:20px}
     .btn-cancel{flex:1;padding:14px;background:transparent;border:1px solid rgba(255,255,255,0.1);border-radius:12px;color:#666688;font-size:15px;font-weight:600;cursor:pointer}
@@ -76,14 +147,246 @@
     .btn-confirm{flex:2;padding:14px;background:linear-gradient(135deg,#7b61ff,#00d4ff);border:none;border-radius:12px;color:white;font-size:15px;font-weight:700;cursor:pointer}
     .btn-confirm:hover{opacity:0.88}
     .btn-confirm:disabled{opacity:0.4;cursor:not-allowed}
+
+    /* Mobile */
+    @media(max-width:600px){
+      .hero h1{font-size:36px}
+      .section h2{font-size:28px}
+      .stats-bar{flex-direction:column}
+      .stat-item{border-right:none;border-bottom:1px solid rgba(255,255,255,0.05)}
+      .header{padding:16px 20px}
+      .section{padding:60px 20px}
+    }
   </style>
 </head>
 <body>
 
+<!-- ── HEADER ── -->
 <div class="header">
   <div class="logo">NovaDEX</div>
+  <div class="nav">
+    <button class="nav-link active" id="navHome">Home</button>
+    <button class="nav-link" id="navSwap">Swap</button>
+  </div>
   <div class="header-right" id="headerWallet">
     <button class="connect-btn" id="connectWalletBtn">Connect Wallet</button>
+  </div>
+</div>
+
+<!-- ── HOME PAGE ── -->
+<div class="page active" id="homePage">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-tag">⚡ Live on Arc Testnet</div>
+    <h1>The Stablecoin DEX<br/>Built for Arc</h1>
+    <p>NovaDEX is the premier decentralized exchange on Arc Testnet — enabling instant, low-fee swaps between USDC, EURC and cirBTC with real on-chain settlement.</p>
+    <div class="hero-btns">
+      <button class="btn-primary" id="heroSwapBtn">Launch App →</button>
+      <a class="btn-secondary" href="https://testnet.arcscan.app/address/0xA3E49f3B007C15076ca73e71A896F5EC86C596Bf" target="_blank">View Contract ↗</a>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar">
+    <div class="stat-item">
+      <div class="stat-num">$20+</div>
+      <div class="stat-desc">Total Liquidity</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">0.3%</div>
+      <div class="stat-desc">Swap Fee</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">3</div>
+      <div class="stat-desc">Supported Tokens</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">&lt;1s</div>
+      <div class="stat-desc">Settlement Time</div>
+    </div>
+  </div>
+
+  <!-- Features -->
+  <div class="section">
+    <div class="section-tag">Why NovaDEX</div>
+    <h2>Built Different.</h2>
+    <p>NovaDEX is purpose-built for Arc's stablecoin-native infrastructure — not a fork, not a copy.</p>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-title">Sub-Second Settlement</div>
+        <div class="feature-desc">Arc's deterministic finality means your swap confirms in under a second — no waiting, no uncertainty.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💵</div>
+        <div class="feature-title">USDC Gas Fees</div>
+        <div class="feature-desc">No volatile gas token. Pay fees in USDC — the same token you're already using to trade.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <div class="feature-title">Non-Custodial</div>
+        <div class="feature-desc">Your keys, your funds. NovaDEX never holds your tokens — every swap goes directly on-chain.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🌐</div>
+        <div class="feature-title">Circle-Native Tokens</div>
+        <div class="feature-desc">Swap between USDC, EURC and cirBTC — all issued natively by Circle on Arc Testnet.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <div class="feature-title">Live On-Chain Quotes</div>
+        <div class="feature-desc">Every price quote comes directly from the smart contract pool — always accurate, always live.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🛡️</div>
+        <div class="feature-title">Slippage Protection</div>
+        <div class="feature-desc">Built-in 5% slippage tolerance protects every swap from sandwich attacks and price manipulation.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- How it works -->
+  <div class="section" style="background:#0d0d14;max-width:100%;padding:80px 40px">
+    <div style="max-width:1100px;margin:0 auto">
+      <div class="section-tag">How It Works</div>
+      <h2>Swap in 3 Steps.</h2>
+      <p>No sign-up, no KYC, no waiting. Just connect and swap.</p>
+      <div class="steps-grid">
+        <div class="step-card">
+          <div class="step-num">01</div>
+          <div class="step-title">Add Arc Testnet</div>
+          <div class="step-desc">Add Arc Testnet to your EVM wallet — MetaMask, Rabby, or Zerion. NovaDEX will auto-prompt the network switch.</div>
+        </div>
+        <div class="step-card">
+          <div class="step-num">02</div>
+          <div class="step-title">Get Testnet Tokens</div>
+          <div class="step-desc">Claim free USDC and EURC from the Circle Faucet. You'll need USDC for gas fees and tokens to swap.</div>
+        </div>
+        <div class="step-card">
+          <div class="step-num">03</div>
+          <div class="step-title">Connect & Swap</div>
+          <div class="step-desc">Connect your wallet on the Swap page, choose your tokens, enter an amount and confirm in your wallet.</div>
+        </div>
+        <div class="step-card">
+          <div class="step-num">04</div>
+          <div class="step-title">Track On-Chain</div>
+          <div class="step-desc">Every swap is recorded on Arc Testnet. View your transaction on ArcScan with the tx hash shown after each swap.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tokens -->
+  <div class="section">
+    <div class="section-tag">Supported Tokens</div>
+    <h2>Circle-Native Assets.</h2>
+    <p>Every token on NovaDEX is issued directly by Circle — the most trusted stablecoin issuer in the world.</p>
+    <div class="tokens-grid">
+      <div class="token-card">
+        <div class="token-logo" style="background:rgba(38,97,254,0.15);color:#2661fe">$</div>
+        <div class="token-info">
+          <div class="name">USDC</div>
+          <div class="desc">USD Coin · Circle · Gas token on Arc</div>
+        </div>
+      </div>
+      <div class="token-card">
+        <div class="token-logo" style="background:rgba(0,150,100,0.15);color:#00aa70">€</div>
+        <div class="token-info">
+          <div class="name">EURC</div>
+          <div class="desc">Euro Coin · Circle · Euro stablecoin</div>
+        </div>
+      </div>
+      <div class="token-card">
+        <div class="token-logo" style="background:rgba(247,147,26,0.15);color:#f7931a">₿</div>
+        <div class="token-info">
+          <div class="name">cirBTC</div>
+          <div class="desc">Circle BTC · Circle · Wrapped Bitcoin</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-section">
+    <h2>Ready to Swap?</h2>
+    <p>NovaDEX is live on Arc Testnet. Connect your wallet and make your first on-chain swap today.</p>
+    <button class="btn-primary" id="ctaSwapBtn">Launch Swap App →</button>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    NovaDEX — Built on Arc Testnet &nbsp;·&nbsp;
+    Factory: <a href="https://testnet.arcscan.app/address/0xd7EB001b35373353f0d52E1AEf9a597051034A1F" target="_blank">0xd7EB...034A1F</a> &nbsp;·&nbsp;
+    Router: <a href="https://testnet.arcscan.app/address/0xA3E49f3B007C15076ca73e71A896F5EC86C596Bf" target="_blank">0xA3E4...96Bf</a>
+    <br/><br/>Built with ❤️ on Arc Testnet
+  </div>
+</div>
+
+<!-- ── SWAP PAGE ── -->
+<div class="page" id="swapPage">
+  <div class="swap-page">
+    <div class="swap-page-title">Swap Tokens</div>
+    <div class="swap-page-sub">Instant stablecoin swaps on Arc Testnet</div>
+
+    <!-- Faucet bar -->
+    <div class="faucet-bar">
+      <span>💧 Need testnet tokens? Get free USDC & EURC</span>
+      <a class="faucet-btn" href="https://faucet.circle.com" target="_blank">Get Tokens →</a>
+    </div>
+
+    <!-- Swap card -->
+    <div class="swap-card">
+      <div class="swap-label">
+        <span>You Pay</span>
+        <span class="balance-label">Balance: <span id="balanceIn">—</span></span>
+      </div>
+      <div class="token-row">
+        <select id="tokenIn">
+          <option value="USDC">USDC</option>
+          <option value="EURC">EURC</option>
+          <option value="cirBTC">cirBTC</option>
+        </select>
+        <input type="number" id="amountIn" placeholder="0.00" min="0"/>
+      </div>
+      <div class="swap-arrow">
+        <button class="arrow-btn" id="flipBtn">⇅</button>
+      </div>
+      <div class="swap-label">
+        <span>You Receive</span>
+        <span class="balance-label">Balance: <span id="balanceOut">—</span></span>
+      </div>
+      <div class="token-row">
+        <select id="tokenOut">
+          <option value="EURC">EURC</option>
+          <option value="USDC">USDC</option>
+          <option value="cirBTC">cirBTC</option>
+        </select>
+        <input type="number" id="amountOut" placeholder="0.00" readonly/>
+      </div>
+      <div class="rate-info">
+        <span>Exchange Rate</span>
+        <span id="rateDisplay">—</span>
+      </div>
+      <button class="swap-btn" id="swapBtn">Swap</button>
+      <div class="status-box" id="statusBox"></div>
+    </div>
+
+    <!-- Swap stats -->
+    <div class="swap-stats">
+      <div class="swap-stat">
+        <div class="swap-stat-val">$20.00</div>
+        <div class="swap-stat-label">Liquidity</div>
+      </div>
+      <div class="swap-stat">
+        <div class="swap-stat-val" id="statVol">$0.00</div>
+        <div class="swap-stat-label">24h Volume</div>
+      </div>
+      <div class="swap-stat">
+        <div class="swap-stat-val">0.3%</div>
+        <div class="swap-stat-label">Fee</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -91,7 +394,7 @@
 <div class="modal-overlay" id="walletModal">
   <div class="wallet-modal">
     <div class="modal-title">Connect a Wallet</div>
-    <div class="modal-subtitle">Choose your preferred wallet to continue</div>
+    <div class="modal-subtitle">Make sure Arc Testnet is added to your wallet first</div>
     <button class="wallet-option" id="mmBtn">
       <div class="wallet-icon" style="background:#f6851b20">🦊</div>
       <div class="wallet-info"><div class="wallet-name">MetaMask</div><div class="wallet-desc">Connect using browser extension</div></div>
@@ -133,8 +436,8 @@
     <div class="confirm-row"><span class="label">You Pay</span><span class="value" id="confirmPay">—</span></div>
     <div class="confirm-row"><span class="label">You Receive (est.)</span><span class="value green" id="confirmReceive">—</span></div>
     <div class="confirm-row"><span class="label">Exchange Rate</span><span class="value" id="confirmRate">—</span></div>
-    <div class="confirm-row"><span class="label">Slippage Tolerance</span><span class="value">5%</span></div>
-    <div class="confirm-row"><span class="label">Swap Fee</span><span class="value">0.3%</span></div>
+    <div class="confirm-row"><span class="label">Slippage</span><span class="value">5%</span></div>
+    <div class="confirm-row"><span class="label">Fee</span><span class="value">0.3%</span></div>
     <div class="confirm-row"><span class="label">Network</span><span class="value">Arc Testnet</span></div>
     <div class="confirm-btns">
       <button class="btn-cancel" id="cancelSwapBtn">Cancel</button>
@@ -143,70 +446,13 @@
   </div>
 </div>
 
-<div class="main">
-  <div class="tag">⚡ Live on Arc Testnet</div>
-  <h1>Swap Stablecoins<br/>Instantly</h1>
-  <p class="subtitle">The premier stablecoin DEX on Arc — powered by USDC & EURC</p>
-  <div class="swap-card">
-    <div class="swap-label">
-      <span>You Pay</span>
-      <span class="balance-label">Balance: <span id="balanceIn">—</span></span>
-    </div>
-    <div class="token-row">
-      <select id="tokenIn">
-        <option value="USDC">USDC</option>
-        <option value="EURC">EURC</option>
-      </select>
-      <input type="number" id="amountIn" placeholder="0.00" />
-    </div>
-    <div class="swap-arrow">
-      <button class="arrow-btn" id="flipBtn">⇅</button>
-    </div>
-    <div class="swap-label">
-      <span>You Receive</span>
-      <span class="balance-label">Balance: <span id="balanceOut">—</span></span>
-    </div>
-    <div class="token-row">
-      <select id="tokenOut">
-        <option value="EURC">EURC</option>
-        <option value="USDC">USDC</option>
-      </select>
-      <input type="number" id="amountOut" placeholder="0.00" readonly />
-    </div>
-    <div class="rate-info">
-      <span>Exchange Rate</span>
-      <span id="rateDisplay">—</span>
-    </div>
-    <button class="swap-btn" id="swapBtn">Swap</button>
-    <div class="status-box" id="statusBox"></div>
-  </div>
-  <div class="stats-row">
-    <div class="stat-card">
-      <div class="stat-value">$20.00</div>
-      <div class="stat-label">Total Liquidity</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value" id="statVol">$0.00</div>
-      <div class="stat-label">24h Volume</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value">0.3%</div>
-      <div class="stat-label">Swap Fee</div>
-    </div>
-  </div>
-  <div class="footer">
-    NovaDEX — Built on Arc Testnet<br/>
-    Factory: 0xd7EB001b35373353f0d52E1AEf9a597051034A1F<br/>
-    Router: 0xA3E49f3B007C15076ca73e71A896F5EC86C596Bf
-  </div>
-</div>
-
 <script>
 // ── Config ───────────────────────────────────────────────────
 const ROUTER = '0xA3E49f3B007C15076ca73e71A896F5EC86C596Bf'
 const TOKENS = {
-  USDC: '0x3600000000000000000000000000000000000000',
-  EURC: '0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a'
+  USDC:   { address: '0x3600000000000000000000000000000000000000', decimals: 6 },
+  EURC:   { address: '0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a', decimals: 6 },
+  cirBTC: { address: 'PENDING', decimals: 8 } // Update when address confirmed
 }
 const ARC_CHAIN_ID  = 5042002
 const ARC_CHAIN_HEX = '0x4CA052'
@@ -220,7 +466,11 @@ const ROUTER_ABI = [
   'function swap(address,address,uint256,uint256,address) returns(uint256)',
   'function getAmountOut(address,address,uint256) view returns(uint256)'
 ]
-const STATIC_RATES = { 'USDC-EURC': 0.92, 'EURC-USDC': 1.087 }
+const STATIC_RATES = {
+  'USDC-EURC':0.92,'EURC-USDC':1.087,
+  'USDC-cirBTC':0.000015,'cirBTC-USDC':66000,
+  'EURC-cirBTC':0.000014,'cirBTC-EURC':71000
+}
 
 // ── State ────────────────────────────────────────────────────
 let provider, signer, walletAddress
@@ -229,17 +479,28 @@ let totalVolume = 0
 
 // ── Boot ─────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', function() {
+  // Nav
+  document.getElementById('navHome').addEventListener('click',   function() { showPage('home') })
+  document.getElementById('navSwap').addEventListener('click',   function() { showPage('swap') })
+  document.getElementById('heroSwapBtn').addEventListener('click', function() { showPage('swap') })
+  document.getElementById('ctaSwapBtn').addEventListener('click',  function() { showPage('swap') })
+
+  // Wallet modal
   document.getElementById('connectWalletBtn').addEventListener('click', function() { openModal('walletModal') })
   document.getElementById('closeWalletBtn').addEventListener('click',   function() { closeModal('walletModal') })
-  document.getElementById('walletModal').addEventListener('click',      function(e) { if (e.target.id === 'walletModal') closeModal('walletModal') })
+  document.getElementById('walletModal').addEventListener('click', function(e) { if(e.target.id==='walletModal') closeModal('walletModal') })
   document.getElementById('mmBtn').addEventListener('click',    connectWallet)
   document.getElementById('rabbyBtn').addEventListener('click', connectWallet)
   document.getElementById('zerionBtn').addEventListener('click',connectWallet)
   document.getElementById('cbBtn').addEventListener('click',    connectWallet)
   document.getElementById('otherBtn').addEventListener('click', connectWallet)
+
+  // Confirm modal
   document.getElementById('cancelSwapBtn').addEventListener('click',  function() { closeModal('confirmModal') })
   document.getElementById('confirmSwapBtn').addEventListener('click', confirmSwap)
-  document.getElementById('confirmModal').addEventListener('click',   function(e) { if (e.target.id === 'confirmModal') closeModal('confirmModal') })
+  document.getElementById('confirmModal').addEventListener('click', function(e) { if(e.target.id==='confirmModal') closeModal('confirmModal') })
+
+  // Swap card
   document.getElementById('swapBtn').addEventListener('click',  initiateSwap)
   document.getElementById('flipBtn').addEventListener('click',  flipTokens)
   document.getElementById('amountIn').addEventListener('input', updateQuote)
@@ -248,28 +509,41 @@ window.addEventListener('DOMContentLoaded', function() {
   document.getElementById('balanceIn').addEventListener('click',setMax)
 })
 
+// ── Navigation ───────────────────────────────────────────────
+function showPage(page) {
+  document.getElementById('homePage').classList.remove('active')
+  document.getElementById('swapPage').classList.remove('active')
+  document.getElementById('navHome').classList.remove('active')
+  document.getElementById('navSwap').classList.remove('active')
+  if (page === 'home') {
+    document.getElementById('homePage').classList.add('active')
+    document.getElementById('navHome').classList.add('active')
+  } else {
+    document.getElementById('swapPage').classList.add('active')
+    document.getElementById('navSwap').classList.add('active')
+    window.scrollTo(0,0)
+  }
+}
+
 // ── Modals ───────────────────────────────────────────────────
 function openModal(id)  { document.getElementById(id).classList.add('active') }
 function closeModal(id) { document.getElementById(id).classList.remove('active') }
 
-// ── Connect ──────────────────────────────────────────────────
+// ── Connect Wallet ────────────────────────────────────────────
 async function connectWallet() {
   closeModal('walletModal')
   if (!window.ethereum) {
-    showStatus('No EVM wallet detected. Please install MetaMask, Rabby, or Zerion.', 'error')
+    showStatus('No EVM wallet detected. Please install MetaMask or Rabby.', 'error')
     return
   }
   try {
     await window.ethereum.request({ method: 'eth_requestAccounts' })
-
-    // Try switching chain — handle all wallet error codes
     try {
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: ARC_CHAIN_HEX }]
       })
     } catch (switchErr) {
-      // 4902 = chain not added, -32603 = Rabby internal error for unknown chain
       if (switchErr.code === 4902 || switchErr.code === -32603) {
         try {
           await window.ethereum.request({
@@ -282,32 +556,23 @@ async function connectWallet() {
               blockExplorerUrls: ['https://testnet.arcscan.app']
             }]
           })
-        } catch (addErr) {
-          console.log('Add chain err:', addErr)
-        }
+        } catch(addErr) { console.log('Add chain err:', addErr) }
       }
     }
-
-    // Wait for wallet to settle after chain switch
     await new Promise(function(r) { setTimeout(r, 800) })
-
-    // Init provider after chain is set
     provider = new ethers.BrowserProvider(window.ethereum)
     signer   = await provider.getSigner()
     walletAddress = await signer.getAddress()
     connected = true
-
     const short = walletAddress.slice(0,6) + '...' + walletAddress.slice(-4)
     document.getElementById('headerWallet').innerHTML =
       '<span class="connected-badge">✅ ' + short + '</span>' +
       '<button class="disconnect-btn" id="disconnectBtn">Disconnect</button>'
     document.getElementById('disconnectBtn').addEventListener('click', disconnectWallet)
-
-    showStatus('Wallet connected to Arc Testnet! 🎉', 'success')
+    showStatus('Wallet connected! 🎉', 'success')
     fetchBalances()
     updateQuote()
-
-  } catch (err) {
+  } catch(err) {
     console.log('Connect error:', err)
     showStatus('Connection failed: ' + (err.message || String(err)), 'error')
   }
@@ -328,26 +593,45 @@ async function fetchBalances() {
   try {
     const tIn  = document.getElementById('tokenIn').value
     const tOut = document.getElementById('tokenOut').value
-    const bIn  = await getBalance(TOKENS[tIn])
-    const bOut = await getBalance(TOKENS[tOut])
+    const bIn  = await getBalance(tIn)
+    const bOut = await getBalance(tOut)
     document.getElementById('balanceIn').textContent  = bIn  + ' ' + tIn
     document.getElementById('balanceOut').textContent = bOut + ' ' + tOut
-  } catch(e) { console.log('Balance error:', e) }
+  } catch(e) { console.log('Balance err:', e) }
 }
 
-async function getBalance(addr) {
+async function getBalance(symbol) {
   try {
-    const c = new ethers.Contract(addr, ERC20_ABI, provider)
+    const token = TOKENS[symbol]
+    if (!token || token.address === 'PENDING') return '0.00'
+    const c = new ethers.Contract(token.address, ERC20_ABI, provider)
     const raw = await c.balanceOf(walletAddress)
     const dec = await c.decimals()
-    return parseFloat(ethers.formatUnits(raw, dec)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+    return parseFloat(ethers.formatUnits(raw, dec)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })
   } catch { return '0.00' }
 }
 
 function setMax() {
   if (!connected) return
-  const num = parseFloat(document.getElementById('balanceIn').textContent.replace(/,/g,''))
-  if (!isNaN(num) && num > 0) { document.getElementById('amountIn').value = num; updateQuote() }
+  const txt = document.getElementById('balanceIn').textContent
+  const num = parseFloat(txt.replace(/,/g,''))
+  if (!isNaN(num) && num > 0) {
+    document.getElementById('amountIn').value = num
+    updateQuote()
+  }
+}
+
+// ── Insufficient balance check ────────────────────────────────
+async function checkBalance(symbol, amount) {
+  try {
+    const token = TOKENS[symbol]
+    if (!token || token.address === 'PENDING') return true
+    const c = new ethers.Contract(token.address, ERC20_ABI, provider)
+    const raw = await c.balanceOf(walletAddress)
+    const dec = await c.decimals()
+    const balance = parseFloat(ethers.formatUnits(raw, dec))
+    return balance >= amount
+  } catch { return true }
 }
 
 // ── Quote ────────────────────────────────────────────────────
@@ -360,23 +644,25 @@ async function updateQuote() {
     document.getElementById('rateDisplay').textContent = '—'
     return
   }
-  if (connected && provider) {
+  // Check if cirBTC is involved — use static rate only
+  const hasCircBTC = tIn === 'cirBTC' || tOut === 'cirBTC'
+  if (!hasCircBTC && connected && provider) {
     try {
-      const rc     = new ethers.Contract(ROUTER, ROUTER_ABI, provider)
-      const inRaw  = ethers.parseUnits(amount.toString(), 6)
-      const outRaw = await rc.getAmountOut(TOKENS[tIn], TOKENS[tOut], inRaw)
-      const out    = parseFloat(ethers.formatUnits(outRaw, 6))
-      document.getElementById('amountOut').value = out.toFixed(4)
-      document.getElementById('rateDisplay').textContent = '1 ' + tIn + ' = ' + (out/amount).toFixed(4) + ' ' + tOut
+      const rc    = new ethers.Contract(ROUTER, ROUTER_ABI, provider)
+      const inRaw = ethers.parseUnits(amount.toString(), TOKENS[tIn].decimals)
+      const outRaw= await rc.getAmountOut(TOKENS[tIn].address, TOKENS[tOut].address, inRaw)
+      const out   = parseFloat(ethers.formatUnits(outRaw, TOKENS[tOut].decimals))
+      document.getElementById('amountOut').value = out.toFixed(6)
+      document.getElementById('rateDisplay').textContent = '1 ' + tIn + ' = ' + (out/amount).toFixed(6) + ' ' + tOut
       return
-    } catch(e) { console.log('Quote error, using static:', e) }
+    } catch(e) { console.log('Live quote failed:', e) }
   }
-  const rate = STATIC_RATES[tIn + '-' + tOut] || 1
-  document.getElementById('amountOut').value = (amount * rate).toFixed(4)
+  const rate = STATIC_RATES[tIn+'-'+tOut] || 1
+  document.getElementById('amountOut').value = (amount * rate).toFixed(6)
   document.getElementById('rateDisplay').textContent = '1 ' + tIn + ' = ' + rate + ' ' + tOut
 }
 
-function onTokenChange() { updateQuote(); if (connected) fetchBalances() }
+function onTokenChange() { updateQuote(); if(connected) fetchBalances() }
 
 function flipTokens() {
   const ti = document.getElementById('tokenIn')
@@ -388,15 +674,34 @@ function flipTokens() {
 }
 
 // ── Swap ─────────────────────────────────────────────────────
-function initiateSwap() {
+async function initiateSwap() {
   const amount = document.getElementById('amountIn').value
-  if (!amount || parseFloat(amount) <= 0) { showStatus('Please enter an amount to swap.', 'error'); return }
-  if (!connected) { showStatus('Please connect your wallet first.', 'error'); openModal('walletModal'); return }
   const tIn    = document.getElementById('tokenIn').value
   const tOut   = document.getElementById('tokenOut').value
+
+  if (!amount || parseFloat(amount) <= 0) {
+    showStatus('Please enter an amount to swap.', 'error'); return
+  }
+  if (!connected) {
+    showStatus('Please connect your wallet first.', 'error')
+    openModal('walletModal'); return
+  }
+
+  // Insufficient balance check
+  const hasEnough = await checkBalance(tIn, parseFloat(amount))
+  if (!hasEnough) {
+    showStatus('Insufficient ' + tIn + ' balance.', 'error'); return
+  }
+
+  // Block cirBTC swaps until address confirmed
+  if (tIn === 'cirBTC' || tOut === 'cirBTC') {
+    showStatus('cirBTC swaps coming soon — contract address being confirmed.', 'error'); return
+  }
+
   const amtIn  = parseFloat(amount)
   const amtOut = parseFloat(document.getElementById('amountOut').value) || 0
-  const rate   = amtIn > 0 ? (amtOut / amtIn).toFixed(4) : '—'
+  const rate   = amtIn > 0 ? (amtOut / amtIn).toFixed(6) : '—'
+
   document.getElementById('confirmText').textContent    = amtIn + ' ' + tIn + ' → ' + amtOut + ' ' + tOut
   document.getElementById('confirmPay').textContent     = amtIn + ' ' + tIn
   document.getElementById('confirmReceive').textContent = amtOut + ' ' + tOut
@@ -413,36 +718,36 @@ async function confirmSwap() {
   const amtIn  = parseFloat(document.getElementById('amountIn').value)
   const amtOut = parseFloat(document.getElementById('amountOut').value)
   try {
-    // Verify correct chain — handle BigInt vs number differences across wallets
     const network = await provider.getNetwork()
     const chainId = Number(network.chainId.toString())
     if (chainId !== ARC_CHAIN_ID) {
-      showStatus('Wrong network — please switch to Arc Testnet in your wallet.', 'error')
+      showStatus('Wrong network — switch to Arc Testnet in your wallet.', 'error')
       btn.disabled = false; btn.textContent = 'Confirm Swap'; return
     }
-
-    const inAddr  = TOKENS[tIn]
-    const outAddr = TOKENS[tOut]
-    const inRaw   = ethers.parseUnits(amtIn.toString(), 6)
-    const minOut  = ethers.parseUnits((amtOut * 0.95).toFixed(6), 6)
+    const inAddr   = TOKENS[tIn].address
+    const outAddr  = TOKENS[tOut].address
+    const inDec    = TOKENS[tIn].decimals
+    const outDec   = TOKENS[tOut].decimals
+    const inRaw    = ethers.parseUnits(amtIn.toString(), inDec)
+    const minOut   = ethers.parseUnits((amtOut * 0.95).toFixed(outDec), outDec)
     const gasPrice = (await provider.getFeeData()).gasPrice
 
-    // Step 1 — Approve if needed
+    // Approve if needed
     showStatus('Step 1/2: Checking allowance... ⏳', 'pending')
     const token     = new ethers.Contract(inAddr, ERC20_ABI, signer)
     const allowance = await token.allowance(walletAddress, ROUTER)
     if (allowance < inRaw) {
       showStatus('Step 1/2: Approve ' + tIn + ' in your wallet... ⏳', 'pending')
-      const approveTx = await token.approve(ROUTER, inRaw, { gasLimit: 100000n, gasPrice: gasPrice })
+      const approveTx = await token.approve(ROUTER, inRaw, { gasLimit: 100000n, gasPrice })
       showStatus('Step 1/2: Waiting for approval... ⏳', 'pending')
       await approveTx.wait()
     }
 
-    // Step 2 — Swap
+    // Swap
     showStatus('Step 2/2: Confirm swap in your wallet... ⏳', 'pending')
     const router = new ethers.Contract(ROUTER, ROUTER_ABI, signer)
-    const swapTx = await router.swap(inAddr, outAddr, inRaw, minOut, walletAddress, { gasLimit: 500000n, gasPrice: gasPrice })
-    showStatus('Step 2/2: Waiting for confirmation... ⏳', 'pending')
+    const swapTx = await router.swap(inAddr, outAddr, inRaw, minOut, walletAddress, { gasLimit: 500000n, gasPrice })
+    showStatus('Step 2/2: Confirming on-chain... ⏳', 'pending')
     const receipt = await swapTx.wait()
 
     totalVolume += amtIn
@@ -451,7 +756,6 @@ async function confirmSwap() {
     document.getElementById('amountIn').value  = ''
     document.getElementById('amountOut').value = ''
     fetchBalances()
-
   } catch(err) {
     const msg = err?.reason || err?.shortMessage || err?.message || 'Transaction failed'
     showStatus('❌ ' + msg, 'error')
@@ -460,7 +764,6 @@ async function confirmSwap() {
   }
 }
 
-// ── Status ───────────────────────────────────────────────────
 function showStatus(msg, type) {
   const box = document.getElementById('statusBox')
   box.textContent = msg
