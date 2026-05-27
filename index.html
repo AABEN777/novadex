@@ -458,7 +458,7 @@
         return
       }
       try {
-        provider = new ethers.BrowserProvider(window.ethereum, {   chainId: 5042002,   name: 'arc-testnet' })
+        provider = new ethers.BrowserProvider(window.ethereum)
         await provider.send('eth_requestAccounts', [])
 
         try {
