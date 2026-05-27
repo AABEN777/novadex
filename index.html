@@ -66,7 +66,6 @@
       font-size: 13px;
       font-weight: 600;
       cursor: pointer;
-      transition: background 0.2s;
     }
     .disconnect-btn:hover { background: rgba(255,80,80,0.2); }
     .main {
@@ -117,10 +116,7 @@
       justify-content: space-between;
       align-items: center;
     }
-    .balance-label {
-      font-size: 12px;
-      color: #444466;
-    }
+    .balance-label { font-size: 12px; color: #444466; }
     .balance-label span {
       color: #7b61ff;
       cursor: pointer;
@@ -164,12 +160,10 @@
       background: #1a1a26;
       border: 1px solid rgba(255,255,255,0.08);
       color: #7b61ff;
-      width: 36px;
-      height: 36px;
+      width: 36px; height: 36px;
       border-radius: 10px;
       font-size: 18px;
       cursor: pointer;
-      transition: background 0.2s;
     }
     .arrow-btn:hover { background: #22223a; }
     .rate-info {
@@ -193,7 +187,6 @@
       font-size: 16px;
       font-weight: 700;
       cursor: pointer;
-      transition: opacity 0.2s;
       margin-top: 8px;
     }
     .swap-btn:hover { opacity: 0.88; }
@@ -206,24 +199,9 @@
       text-align: center;
       display: none;
     }
-    .status-box.success {
-      background: rgba(0,255,150,0.08);
-      border: 1px solid rgba(0,255,150,0.2);
-      color: #00ff96;
-      display: block;
-    }
-    .status-box.error {
-      background: rgba(255,80,80,0.08);
-      border: 1px solid rgba(255,80,80,0.2);
-      color: #ff5050;
-      display: block;
-    }
-    .status-box.pending {
-      background: rgba(123,97,255,0.08);
-      border: 1px solid rgba(123,97,255,0.2);
-      color: #7b61ff;
-      display: block;
-    }
+    .status-box.success { background: rgba(0,255,150,0.08); border: 1px solid rgba(0,255,150,0.2); color: #00ff96; display: block; }
+    .status-box.error { background: rgba(255,80,80,0.08); border: 1px solid rgba(255,80,80,0.2); color: #ff5050; display: block; }
+    .status-box.pending { background: rgba(123,97,255,0.08); border: 1px solid rgba(123,97,255,0.2); color: #7b61ff; display: block; }
     .stats-row {
       display: flex;
       gap: 16px;
@@ -246,22 +224,8 @@
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
-    .stat-label {
-      font-size: 11px;
-      color: #444466;
-      margin-top: 4px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .footer {
-      margin-top: 40px;
-      font-size: 12px;
-      color: #333355;
-      padding-bottom: 30px;
-      text-align: center;
-    }
-
-    /* Wallet Modal */
+    .stat-label { font-size: 11px; color: #444466; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .footer { margin-top: 40px; font-size: 12px; color: #333355; padding-bottom: 30px; text-align: center; }
     .modal-overlay {
       display: none;
       position: fixed;
@@ -299,34 +263,13 @@
       text-align: left;
     }
     .wallet-option:hover { border-color: rgba(123,97,255,0.4); background: #1e1e30; }
-    .wallet-icon {
-      width: 40px; height: 40px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 22px;
-      flex-shrink: 0;
-    }
+    .wallet-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
     .wallet-info { flex: 1; }
-    .wallet-name { font-size: 15px; font-weight: 600; color: #ffffff; }
+    .wallet-name { font-size: 15px; font-weight: 600; color: #fff; }
     .wallet-desc { font-size: 12px; color: #666688; margin-top: 2px; }
     .wallet-arrow { color: #444466; font-size: 18px; }
-    .modal-close {
-      width: 100%;
-      padding: 12px;
-      background: transparent;
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 12px;
-      color: #666688;
-      font-size: 14px;
-      cursor: pointer;
-      margin-top: 8px;
-      transition: border-color 0.2s;
-    }
+    .modal-close { width: 100%; padding: 12px; background: transparent; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; color: #666688; font-size: 14px; cursor: pointer; margin-top: 8px; }
     .modal-close:hover { border-color: rgba(255,255,255,0.2); color: #aaaacc; }
-
-    /* Confirm Swap Modal */
     .confirm-modal {
       background: #12121a;
       border: 1px solid rgba(255,255,255,0.08);
@@ -337,56 +280,19 @@
       margin: 16px;
     }
     .confirm-title { font-size: 18px; font-weight: 700; text-align: center; margin-bottom: 20px; }
-    .confirm-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-      font-size: 14px;
-    }
+    .confirm-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 14px; }
     .confirm-row:last-of-type { border-bottom: none; }
     .confirm-row .label { color: #666688; }
-    .confirm-row .value { color: #ffffff; font-weight: 600; }
+    .confirm-row .value { color: #fff; font-weight: 600; }
     .confirm-row .value.green { color: #00ff96; }
-    .confirm-arrows {
-      text-align: center;
-      font-size: 28px;
-      padding: 16px 0;
-      color: #7b61ff;
-    }
-    .confirm-amount {
-      text-align: center;
-      margin: 8px 0 20px;
-    }
-    .confirm-amount .big { font-size: 28px; font-weight: 800; color: #ffffff; }
+    .confirm-arrows { text-align: center; font-size: 28px; padding: 16px 0; color: #7b61ff; }
+    .confirm-amount { text-align: center; margin: 8px 0 20px; }
+    .confirm-amount .big { font-size: 28px; font-weight: 800; color: #fff; }
     .confirm-amount .small { font-size: 13px; color: #666688; margin-top: 4px; }
     .confirm-btns { display: flex; gap: 10px; margin-top: 20px; }
-    .btn-cancel {
-      flex: 1;
-      padding: 14px;
-      background: transparent;
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 12px;
-      color: #666688;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: border-color 0.2s;
-    }
+    .btn-cancel { flex: 1; padding: 14px; background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: #666688; font-size: 15px; font-weight: 600; cursor: pointer; }
     .btn-cancel:hover { border-color: rgba(255,255,255,0.2); color: #aaaacc; }
-    .btn-confirm {
-      flex: 2;
-      padding: 14px;
-      background: linear-gradient(135deg, #7b61ff, #00d4ff);
-      border: none;
-      border-radius: 12px;
-      color: white;
-      font-size: 15px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: opacity 0.2s;
-    }
+    .btn-confirm { flex: 2; padding: 14px; background: linear-gradient(135deg, #7b61ff, #00d4ff); border: none; border-radius: 12px; color: white; font-size: 15px; font-weight: 700; cursor: pointer; }
     .btn-confirm:hover { opacity: 0.88; }
   </style>
 </head>
@@ -394,56 +300,39 @@
 
   <div class="header">
     <div class="logo">NovaDEX</div>
-    <div class="header-right">
-      <div id="headerWallet">
-        <button class="connect-btn" onclick="openWalletModal()">Connect Wallet</button>
-      </div>
+    <div class="header-right" id="headerWallet">
+      <button class="connect-btn" onclick="openWalletModal()">Connect Wallet</button>
     </div>
   </div>
 
-  <!-- Wallet Selection Modal -->
+  <!-- Wallet Modal -->
   <div class="modal-overlay" id="walletModal">
     <div class="wallet-modal">
       <div class="modal-title">Connect a Wallet</div>
       <div class="modal-subtitle">Choose your preferred wallet to continue</div>
       <button class="wallet-option" onclick="connectWithProvider()">
         <div class="wallet-icon" style="background:#f6851b20">🦊</div>
-        <div class="wallet-info">
-          <div class="wallet-name">MetaMask</div>
-          <div class="wallet-desc">Connect using browser extension</div>
-        </div>
+        <div class="wallet-info"><div class="wallet-name">MetaMask</div><div class="wallet-desc">Connect using browser extension</div></div>
         <div class="wallet-arrow">›</div>
       </button>
       <button class="wallet-option" onclick="connectWithProvider()">
         <div class="wallet-icon" style="background:#8b5cf620">🐇</div>
-        <div class="wallet-info">
-          <div class="wallet-name">Rabby Wallet</div>
-          <div class="wallet-desc">Connect using browser extension</div>
-        </div>
+        <div class="wallet-info"><div class="wallet-name">Rabby Wallet</div><div class="wallet-desc">Connect using browser extension</div></div>
         <div class="wallet-arrow">›</div>
       </button>
       <button class="wallet-option" onclick="connectWithProvider()">
         <div class="wallet-icon" style="background:#2563eb20">💎</div>
-        <div class="wallet-info">
-          <div class="wallet-name">Zerion</div>
-          <div class="wallet-desc">Connect using browser extension</div>
-        </div>
+        <div class="wallet-info"><div class="wallet-name">Zerion</div><div class="wallet-desc">Connect using browser extension</div></div>
         <div class="wallet-arrow">›</div>
       </button>
       <button class="wallet-option" onclick="connectWithProvider()">
         <div class="wallet-icon" style="background:#1652f020">🔵</div>
-        <div class="wallet-info">
-          <div class="wallet-name">Coinbase Wallet</div>
-          <div class="wallet-desc">Connect using browser extension</div>
-        </div>
+        <div class="wallet-info"><div class="wallet-name">Coinbase Wallet</div><div class="wallet-desc">Connect using browser extension</div></div>
         <div class="wallet-arrow">›</div>
       </button>
       <button class="wallet-option" onclick="connectWithProvider()">
         <div class="wallet-icon" style="background:#ffffff10">🔗</div>
-        <div class="wallet-info">
-          <div class="wallet-name">Other EVM Wallet</div>
-          <div class="wallet-desc">Any injected EVM wallet</div>
-        </div>
+        <div class="wallet-info"><div class="wallet-name">Other EVM Wallet</div><div class="wallet-desc">Any injected EVM wallet</div></div>
         <div class="wallet-arrow">›</div>
       </button>
       <button class="modal-close" onclick="closeWalletModal()">Cancel</button>
@@ -459,29 +348,14 @@
         <div class="big" id="confirmText">—</div>
         <div class="small">Review your swap details below</div>
       </div>
-      <div class="confirm-row">
-        <span class="label">You Pay</span>
-        <span class="value" id="confirmPay">—</span>
-      </div>
-      <div class="confirm-row">
-        <span class="label">You Receive</span>
-        <span class="value green" id="confirmReceive">—</span>
-      </div>
-      <div class="confirm-row">
-        <span class="label">Exchange Rate</span>
-        <span class="value" id="confirmRate">—</span>
-      </div>
-      <div class="confirm-row">
-        <span class="label">Swap Fee</span>
-        <span class="value">0.3%</span>
-      </div>
-      <div class="confirm-row">
-        <span class="label">Network</span>
-        <span class="value">Arc Testnet</span>
-      </div>
+      <div class="confirm-row"><span class="label">You Pay</span><span class="value" id="confirmPay">—</span></div>
+      <div class="confirm-row"><span class="label">You Receive (est.)</span><span class="value green" id="confirmReceive">—</span></div>
+      <div class="confirm-row"><span class="label">Exchange Rate</span><span class="value" id="confirmRate">—</span></div>
+      <div class="confirm-row"><span class="label">Swap Fee</span><span class="value">0.3%</span></div>
+      <div class="confirm-row"><span class="label">Network</span><span class="value">Arc Testnet</span></div>
       <div class="confirm-btns">
         <button class="btn-cancel" onclick="closeConfirmModal()">Cancel</button>
-        <button class="btn-confirm" onclick="confirmSwap()">Confirm Swap</button>
+        <button class="btn-confirm" id="confirmBtn" onclick="confirmSwap()">Confirm Swap</button>
       </div>
     </div>
   </div>
@@ -492,7 +366,6 @@
     <p class="subtitle">The premier stablecoin DEX on Arc — powered by USDC & EURC</p>
 
     <div class="swap-card">
-
       <div class="swap-label">
         <span>You Pay</span>
         <span class="balance-label">Balance: <span id="balanceIn" onclick="setMax()">—</span></span>
@@ -502,7 +375,7 @@
           <option value="USDC">USDC</option>
           <option value="EURC">EURC</option>
         </select>
-        <input type="number" id="amountIn" placeholder="0.00" oninput="updateRate()" />
+        <input type="number" id="amountIn" placeholder="0.00" oninput="updateQuote()" />
       </div>
 
       <div class="swap-arrow">
@@ -523,7 +396,7 @@
 
       <div class="rate-info">
         <span>Exchange Rate</span>
-        <span id="rateDisplay">1 USDC = 0.92 EURC</span>
+        <span id="rateDisplay">—</span>
       </div>
 
       <button class="swap-btn" onclick="initiateSwap()">Swap</button>
@@ -532,11 +405,11 @@
 
     <div class="stats-row">
       <div class="stat-card">
-        <div class="stat-value">$0</div>
+        <div class="stat-value" id="statLiquidity">$20.00</div>
         <div class="stat-label">Total Liquidity</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value" id="statVol">$0</div>
+        <div class="stat-value" id="statVol">$0.00</div>
         <div class="stat-label">24h Volume</div>
       </div>
       <div class="stat-card">
@@ -547,27 +420,35 @@
 
     <div class="footer">
       NovaDEX — Built on Arc Testnet<br/>
-      Contract: 0xd7EB001b35373353f0d52E1AEf9a597051034A1F
+      Factory: 0xd7EB001b35373353f0d52E1AEf9a597051034A1F<br/>
+      Router: 0xA3E49f3B007C15076ca73e71A896F5EC86C596Bf
     </div>
   </div>
 
   <script>
-    const RATES = { 'USDC-EURC': 0.92, 'EURC-USDC': 1.087 }
-    const USDC_ADDRESS = '0x3600000000000000000000000000000000000000'
-    const EURC_ADDRESS = '0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a'
+    // ── Constants ─────────────────────────────────────────────
+    const FACTORY = '0xd7EB001b35373353f0d52E1AEf9a597051034A1F'
+    const ROUTER  = '0xA3E49f3B007C15076ca73e71A896F5EC86C596Bf'
+    const TOKENS  = {
+      USDC: '0x3600000000000000000000000000000000000000',
+      EURC: '0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a'
+    }
     const ERC20_ABI = [
+      'function approve(address spender, uint256 amount) returns (bool)',
+      'function allowance(address owner, address spender) view returns (uint256)',
       'function balanceOf(address owner) view returns (uint256)',
       'function decimals() view returns (uint8)'
     ]
+    const ROUTER_ABI = [
+      'function swap(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, address to) returns (uint256)',
+      'function getAmountOut(address tokenIn, address tokenOut, uint256 amountIn) view returns (uint256)'
+    ]
 
-    let walletConnected = false
-    let walletAddress = null
-    let provider = null
-    let signer = null
+    let provider, signer, walletAddress, walletConnected = false
     let totalVolume = 0
 
-    // ─── WALLET MODAL ───────────────────────────────────────────
-    function openWalletModal() { document.getElementById('walletModal').classList.add('active') }
+    // ── Wallet ────────────────────────────────────────────────
+    function openWalletModal()  { document.getElementById('walletModal').classList.add('active') }
     function closeWalletModal() { document.getElementById('walletModal').classList.remove('active') }
 
     async function connectWithProvider() {
@@ -581,21 +462,12 @@
         await provider.send('eth_requestAccounts', [])
 
         try {
-          await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: '0x4CA052' }]
-          })
-        } catch (switchErr) {
-          if (switchErr.code === 4902) {
+          await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x4CA052' }] })
+        } catch (e) {
+          if (e.code === 4902) {
             await window.ethereum.request({
               method: 'wallet_addEthereumChain',
-              params: [{
-                chainId: '0x4CA052',
-                chainName: 'Arc Testnet',
-                nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
-                rpcUrls: ['https://rpc.testnet.arc.network'],
-                blockExplorerUrls: ['https://testnet.arcscan.app']
-              }]
+              params: [{ chainId: '0x4CA052', chainName: 'Arc Testnet', nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 }, rpcUrls: ['https://rpc.testnet.arc.network'], blockExplorerUrls: ['https://testnet.arcscan.app'] }]
             })
           }
         }
@@ -609,10 +481,9 @@
           <span class="connected-badge">✅ ${short}</span>
           <button class="disconnect-btn" onclick="disconnectWallet()">Disconnect</button>
         `
-
         showStatus('Wallet connected to Arc Testnet! 🎉', 'success')
         await fetchBalances()
-
+        await updateQuote()
       } catch (err) {
         showStatus('Connection failed: ' + err.message, 'error')
       }
@@ -623,156 +494,182 @@
       walletAddress = null
       provider = null
       signer = null
-      document.getElementById('headerWallet').innerHTML = `
-        <button class="connect-btn" onclick="openWalletModal()">Connect Wallet</button>
-      `
+      document.getElementById('headerWallet').innerHTML = `<button class="connect-btn" onclick="openWalletModal()">Connect Wallet</button>`
       document.getElementById('balanceIn').textContent = '—'
       document.getElementById('balanceOut').textContent = '—'
       showStatus('Wallet disconnected.', 'error')
     }
 
-    // ─── BALANCES ────────────────────────────────────────────────
+    // ── Balances ──────────────────────────────────────────────
     async function fetchBalances() {
       if (!walletConnected || !provider) return
       try {
-        const tokenIn = document.getElementById('tokenIn').value
+        const tokenIn  = document.getElementById('tokenIn').value
         const tokenOut = document.getElementById('tokenOut').value
-
-        const inAddr = tokenIn === 'USDC' ? USDC_ADDRESS : EURC_ADDRESS
-        const outAddr = tokenOut === 'USDC' ? USDC_ADDRESS : EURC_ADDRESS
-
-        const balIn = await getTokenBalance(inAddr)
-        const balOut = await getTokenBalance(outAddr)
-
-        document.getElementById('balanceIn').textContent = balIn + ' ' + tokenIn
+        const [balIn, balOut] = await Promise.all([
+          getTokenBalance(TOKENS[tokenIn]),
+          getTokenBalance(TOKENS[tokenOut])
+        ])
+        document.getElementById('balanceIn').textContent  = balIn  + ' ' + tokenIn
         document.getElementById('balanceOut').textContent = balOut + ' ' + tokenOut
-      } catch (e) {
-        document.getElementById('balanceIn').textContent = 'N/A'
-        document.getElementById('balanceOut').textContent = 'N/A'
-      }
+      } catch { }
     }
 
-    async function getTokenBalance(tokenAddress) {
+    async function getTokenBalance(addr) {
       try {
-        const contract = new ethers.Contract(tokenAddress, ERC20_ABI, provider)
-        const [raw, decimals] = await Promise.all([
-          contract.balanceOf(walletAddress),
-          contract.decimals()
-        ])
-        const formatted = parseFloat(ethers.formatUnits(raw, decimals))
-        return formatted.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })
-      } catch {
-        return '0.00'
-      }
+        const c = new ethers.Contract(addr, ERC20_ABI, provider)
+        const [raw, dec] = await Promise.all([c.balanceOf(walletAddress), c.decimals()])
+        return parseFloat(ethers.formatUnits(raw, dec)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+      } catch { return '0.00' }
     }
 
     function setMax() {
-      const balText = document.getElementById('balanceIn').textContent
-      const num = parseFloat(balText.replace(/,/g, ''))
+      const txt = document.getElementById('balanceIn').textContent
+      const num = parseFloat(txt.replace(/,/g, ''))
       if (!isNaN(num) && num > 0) {
         document.getElementById('amountIn').value = num
-        updateRate()
+        updateQuote()
       }
     }
 
-    function onTokenChange() {
-      updateRate()
-      if (walletConnected) fetchBalances()
-    }
-
-    // ─── SWAP LOGIC ──────────────────────────────────────────────
-    function updateRate() {
-      const tokenIn = document.getElementById('tokenIn').value
+    // ── Quote ─────────────────────────────────────────────────
+    async function updateQuote() {
+      const amountIn = parseFloat(document.getElementById('amountIn').value)
+      const tokenIn  = document.getElementById('tokenIn').value
       const tokenOut = document.getElementById('tokenOut').value
-      const amountIn = parseFloat(document.getElementById('amountIn').value) || 0
+
+      if (!amountIn || amountIn <= 0) {
+        document.getElementById('amountOut').value = ''
+        document.getElementById('rateDisplay').textContent = '—'
+        return
+      }
+
+      if (walletConnected && provider) {
+        try {
+          const routerContract = new ethers.Contract(ROUTER, ROUTER_ABI, provider)
+          const decimalsIn = 6
+          const amountInRaw = ethers.parseUnits(amountIn.toString(), decimalsIn)
+          const amountOutRaw = await routerContract.getAmountOut(TOKENS[tokenIn], TOKENS[tokenOut], amountInRaw)
+          const amountOut = parseFloat(ethers.formatUnits(amountOutRaw, 6))
+          document.getElementById('amountOut').value = amountOut.toFixed(4)
+          document.getElementById('rateDisplay').textContent = `1 ${tokenIn} = ${(amountOut / amountIn).toFixed(4)} ${tokenOut}`
+          return
+        } catch { }
+      }
+
+      // Fallback static rate
+      const RATES = { 'USDC-EURC': 0.92, 'EURC-USDC': 1.087 }
       const rate = RATES[`${tokenIn}-${tokenOut}`] || 1
-      document.getElementById('amountOut').value = amountIn > 0 ? (amountIn * rate).toFixed(4) : ''
+      document.getElementById('amountOut').value = (amountIn * rate).toFixed(4)
       document.getElementById('rateDisplay').textContent = `1 ${tokenIn} = ${rate} ${tokenOut}`
     }
 
-    function flipTokens() {
-      const tokenIn = document.getElementById('tokenIn')
-      const tokenOut = document.getElementById('tokenOut')
-      const temp = tokenIn.value
-      tokenIn.value = tokenOut.value
-      tokenOut.value = temp
-      document.getElementById('amountIn').value = ''
-      document.getElementById('amountOut').value = ''
-      updateRate()
+    function onTokenChange() {
+      updateQuote()
       if (walletConnected) fetchBalances()
     }
 
+    function flipTokens() {
+      const ti = document.getElementById('tokenIn')
+      const to = document.getElementById('tokenOut')
+      const tmp = ti.value
+      ti.value = to.value
+      to.value = tmp
+      document.getElementById('amountIn').value = ''
+      document.getElementById('amountOut').value = ''
+      onTokenChange()
+    }
+
+    // ── Swap ──────────────────────────────────────────────────
     function initiateSwap() {
       const amountIn = document.getElementById('amountIn').value
-      if (!amountIn || parseFloat(amountIn) <= 0) {
-        showStatus('Please enter an amount to swap.', 'error')
-        return
-      }
-      if (!walletConnected) {
-        showStatus('Please connect your wallet first.', 'error')
-        openWalletModal()
-        return
-      }
+      if (!amountIn || parseFloat(amountIn) <= 0) { showStatus('Please enter an amount.', 'error'); return }
+      if (!walletConnected) { showStatus('Please connect your wallet first.', 'error'); openWalletModal(); return }
 
-      const tokenIn = document.getElementById('tokenIn').value
+      const tokenIn  = document.getElementById('tokenIn').value
       const tokenOut = document.getElementById('tokenOut').value
       const amountOut = document.getElementById('amountOut').value
-      const rate = RATES[`${tokenIn}-${tokenOut}`] || 1
+      const rate = amountIn > 0 ? (parseFloat(amountOut) / parseFloat(amountIn)).toFixed(4) : '—'
 
-      // Populate confirm modal
-      document.getElementById('confirmText').textContent = `${amountIn} ${tokenIn} → ${amountOut} ${tokenOut}`
-      document.getElementById('confirmPay').textContent = `${amountIn} ${tokenIn}`
+      document.getElementById('confirmText').textContent    = `${amountIn} ${tokenIn} → ${amountOut} ${tokenOut}`
+      document.getElementById('confirmPay').textContent     = `${amountIn} ${tokenIn}`
       document.getElementById('confirmReceive').textContent = `${amountOut} ${tokenOut}`
-      document.getElementById('confirmRate').textContent = `1 ${tokenIn} = ${rate} ${tokenOut}`
+      document.getElementById('confirmRate').textContent    = `1 ${tokenIn} = ${rate} ${tokenOut}`
 
       document.getElementById('confirmModal').classList.add('active')
     }
 
-    function closeConfirmModal() {
-      document.getElementById('confirmModal').classList.remove('active')
-    }
+    function closeConfirmModal() { document.getElementById('confirmModal').classList.remove('active') }
 
     async function confirmSwap() {
+      const btn = document.getElementById('confirmBtn')
+      btn.disabled = true
+      btn.textContent = 'Processing...'
       closeConfirmModal()
-      const amountIn = parseFloat(document.getElementById('amountIn').value)
+
+      const tokenIn   = document.getElementById('tokenIn').value
+      const tokenOut  = document.getElementById('tokenOut').value
+      const amountIn  = parseFloat(document.getElementById('amountIn').value)
       const amountOut = parseFloat(document.getElementById('amountOut').value)
-      const tokenIn = document.getElementById('tokenIn').value
-      const tokenOut = document.getElementById('tokenOut').value
 
-      showStatus('⏳ Swap submitted — confirming on Arc Testnet...', 'pending')
+      try {
+        const tokenInAddr  = TOKENS[tokenIn]
+        const tokenOutAddr = TOKENS[tokenOut]
+        const amountInRaw  = ethers.parseUnits(amountIn.toString(), 6)
+        const minOutRaw    = ethers.parseUnits((amountOut * 0.95).toFixed(6), 6) // 5% slippage
 
-      setTimeout(async () => {
-        // Add to running volume total
+        // Step 1 — Approve
+        showStatus('Step 1/2: Approving ' + tokenIn + ' spend... ⏳', 'pending')
+        const tokenContract = new ethers.Contract(tokenInAddr, ERC20_ABI, signer)
+
+        const allowance = await tokenContract.allowance(walletAddress, ROUTER)
+        if (allowance < amountInRaw) {
+          const approveTx = await tokenContract.approve(ROUTER, amountInRaw, { gasLimit: 100000n })
+          showStatus('Waiting for approval confirmation... ⏳', 'pending')
+          await approveTx.wait()
+        }
+
+        // Step 2 — Swap
+        showStatus('Step 2/2: Executing swap on Arc Testnet... ⏳', 'pending')
+        const routerContract = new ethers.Contract(ROUTER, ROUTER_ABI, signer)
+        const swapTx = await routerContract.swap(
+          tokenInAddr,
+          tokenOutAddr,
+          amountInRaw,
+          minOutRaw,
+          walletAddress,
+          { gasLimit: 500000n }
+        )
+        showStatus('Confirming transaction... ⏳', 'pending')
+        const receipt = await swapTx.wait()
+
+        // Success
         totalVolume += amountIn
-        document.getElementById('statVol').textContent = '$' + totalVolume.toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2
-        })
+        document.getElementById('statVol').textContent = '$' + totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        showStatus(`✅ Swapped ${amountIn} ${tokenIn} → ${amountOut} ${tokenOut} | Tx: ${receipt.hash.slice(0,10)}...`, 'success')
 
-        showStatus(`✅ Swapped ${amountIn} ${tokenIn} → ${amountOut} ${tokenOut} successfully!`, 'success')
-
-        // Clear inputs
-        document.getElementById('amountIn').value = ''
+        document.getElementById('amountIn').value  = ''
         document.getElementById('amountOut').value = ''
-
-        // Refresh balances
         await fetchBalances()
-      }, 2000)
+
+      } catch (err) {
+        const msg = err?.reason || err?.message || 'Transaction failed'
+        showStatus('❌ ' + msg, 'error')
+      } finally {
+        btn.disabled = false
+        btn.textContent = 'Confirm Swap'
+      }
     }
 
-    // ─── HELPERS ────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────
     function showStatus(msg, type) {
       const box = document.getElementById('statusBox')
       box.textContent = msg
       box.className = 'status-box ' + type
     }
 
-    document.getElementById('walletModal').addEventListener('click', function(e) {
-      if (e.target === this) closeWalletModal()
-    })
-    document.getElementById('confirmModal').addEventListener('click', function(e) {
-      if (e.target === this) closeConfirmModal()
-    })
+    document.getElementById('walletModal').addEventListener('click', function(e) { if (e.target === this) closeWalletModal() })
+    document.getElementById('confirmModal').addEventListener('click', function(e) { if (e.target === this) closeConfirmModal() })
   </script>
 
 </body>
