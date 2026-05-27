@@ -624,7 +624,7 @@
 
         const allowance = await tokenContract.allowance(walletAddress, ROUTER)
         if (allowance < amountInRaw) {
-          const feeData = await provider.getFeeData() const approveTx = await tokenContract.approve(ROUTER, amountInRaw, { gasLimit: 100000n, maxFeePerGas: feeData.gasPrice, maxPriorityFeePerGas: feeData.gasPrice })
+          const feeData = await provider.getFeeData() const approveTx = await tokenContract.approve(ROUTER, amountInRaw, { gasLimit: 100000n, { gasLimit: 100000n, gasPrice: feeData.gasPrice } })
           showStatus('Waiting for approval confirmation... ⏳', 'pending')
           await approveTx.wait()
         }
