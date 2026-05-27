@@ -693,11 +693,6 @@ async function initiateSwap() {
     showStatus('Insufficient ' + tIn + ' balance.', 'error'); return
   }
 
-  // Block cirBTC swaps until address confirmed
-  if (tIn === 'cirBTC' || tOut === 'cirBTC') {
-    showStatus('cirBTC swaps coming soon — contract address being confirmed.', 'error'); return
-  }
-
   const amtIn  = parseFloat(amount)
   const amtOut = parseFloat(document.getElementById('amountOut').value) || 0
   const rate   = amtIn > 0 ? (amtOut / amtIn).toFixed(6) : '—'
