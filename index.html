@@ -617,6 +617,15 @@
         const amountInRaw  = ethers.parseUnits(amountIn.toString(), 6)
         const minOutRaw    = ethers.parseUnits((amountOut * 0.95).toFixed(6), 6) // 5% slippage
 
+        const network = await provider.getNetwork()
+console.log('Connected chain ID:', network.chainId.toString())
+if (network.chainId !== 5042002n) {
+  showStatus('Please switch your wallet to Arc Testnet.', 'error')
+  btn.disabled = false
+  btn.textContent = 'Confirm Swap'
+  return
+}
+
         // Step 1 — Approve
         showStatus('Step 1/2: Approving ' + tokenIn + ' spend... ⏳', 'pending')
         const tokenContract = new ethers.Contract(tokenInAddr, ERC20_ABI, signer)
