@@ -677,6 +677,10 @@ const PAIR_ABI = [
   'function totalSupply() view returns(uint256)',
   'function getReserves() view returns(uint256,uint256)'
 ]
+const MEMO_ADDRESS = '0x5294E9927c3306DcBaDb03fe70b92e01cCede505'
+const MEMO_ABI = [
+  'function memo(address target, bytes calldata data, bytes32 memoId, bytes calldata memoData) external'
+]
 const STATIC_RATES = {
   'USDC-EURC':0.92,'EURC-USDC':1.087,
   'USDC-cirBTC':0.000015,'cirBTC-USDC':66000,
@@ -808,6 +812,18 @@ window.addEventListener('DOMContentLoaded', function() {
   checkNetwork()
   buildChart('USDC-EURC')
   renderHistory()
+
+  // Restore page from URL hash on load/refresh instead of always resetting to home
+  var initialPage = (window.location.hash || '').replace('#','') || 'home'
+  var validPages = ['home','swap','liquidity','leaderboard','history']
+  if(validPages.indexOf(initialPage) === -1) initialPage = 'home'
+  showPage(initialPage, true)
+  try { history.replaceState({ page:initialPage }, '', initialPage==='home' ? window.location.pathname : '#'+initialPage) } catch(e) { console.log('History replace skipped:',e) }
+
+  // Silently reconnect if wallet was connected before refresh — does not show modal or toast
+  if(localStorage.getItem('novadex_wallet_connected')==='true' && window.ethereum) {
+    connectWallet(true)
+  }
 })
 
 // ── HAMBURGER MENU ────────────────────────────────────────────
@@ -831,7 +847,7 @@ function toggleTheme() {
 }
 
 // ── PAGES ─────────────────────────────────────────────────────
-function showPage(page) {
+function showPage(page, skipHistory) {
   var map     = { home:'homePage', swap:'swapPage', liquidity:'liquidityPage', leaderboard:'leaderboardPage', history:'historyPage' }
   var sideMap = { home:'sideHome', swap:'sideSwap', liquidity:'sideLiquidity', leaderboard:'sideLeaderboard', history:'sideHistory' }
   Object.values(map).forEach(function(id){ document.getElementById(id).classList.remove('active') })
@@ -839,10 +855,19 @@ function showPage(page) {
   document.getElementById(map[page]).classList.add('active')
   if(sideMap[page]) document.getElementById(sideMap[page]).classList.add('active')
   window.scrollTo(0,0)
+  if(!skipHistory) {
+    var url = page==='home' ? window.location.pathname : '#'+page
+    try { history.pushState({ page:page }, '', url) } catch(e) { console.log('History push skipped:',e) }
+  }
   if(page==='history') renderHistory()
   if(page==='leaderboard') renderLeaderboard()
   if(page==='swap') setTimeout(function(){ buildChart(document.querySelector('.chart-tab.active').dataset.pair) },100)
 }
+
+window.addEventListener('popstate', function(e) {
+  var page = (e.state && e.state.page) || 'home'
+  showPage(page, true)
+})
 
 // ── MODALS ───────────────────────────────────────────────────
 function openModal(id)  { document.getElementById(id).classList.add('active') }
@@ -901,9 +926,9 @@ function buildChart(pair) {
 }
 
 // ── CONNECT WALLET ────────────────────────────────────────────
-async function connectWallet() {
-  closeModal('walletModal')
-  if(!window.ethereum){ showStatus('No EVM wallet detected. Please install MetaMask or Rabby.','error'); return }
+async function connectWallet(silent) {
+  if(!silent) closeModal('walletModal')
+  if(!window.ethereum){ if(!silent) showStatus('No EVM wallet detected. Please install MetaMask or Rabby.','error'); return }
   try {
     await window.ethereum.request({ method:'eth_requestAccounts' })
     try {
@@ -925,19 +950,21 @@ async function connectWallet() {
       '<span class="connected-badge">✅ '+short+'</span>'+
       '<button class="disconnect-btn" id="disconnectBtn">Disconnect</button>'
     document.getElementById('disconnectBtn').addEventListener('click', disconnectWallet)
-    showStatus('Wallet connected! 🎉','success')
+    localStorage.setItem('novadex_wallet_connected','true')
+    if(!silent) showStatus('Wallet connected! 🎉','success')
     fetchBalances()
     updateQuote()
     renderHistory()
     if(document.getElementById('leaderboardPage').classList.contains('active')) renderLeaderboard()
   } catch(err) {
     console.log('Connect error:',err)
-    showStatus('Connection failed: '+(err.message||String(err)),'error')
+    if(!silent) showStatus('Connection failed: '+(err.message||String(err)),'error')
   }
 }
 
 function disconnectWallet() {
   connected=false; walletAddress=null; provider=null; signer=null
+  localStorage.removeItem('novadex_wallet_connected')
   document.getElementById('headerWallet').innerHTML='<button class="connect-btn" id="connectWalletBtn">Connect Wallet</button>'
   document.getElementById('connectWalletBtn').addEventListener('click',function(){ openModal('walletModal') })
   document.getElementById('balanceIn').textContent='—'
@@ -1079,16 +1106,21 @@ async function confirmSwap() {
 
     showStatus('Step 2/2: Confirm swap in your wallet... ⏳','pending')
     var router = new ethers.Contract(ROUTER,ROUTER_ABI,signer)
+    var memoContract = new ethers.Contract(MEMO_ADDRESS,MEMO_ABI,signer)
+    var memoId = ethers.encodeBytes32String('NovaDEXSwap'.slice(0,31))
+    var memoData = ethers.toUtf8Bytes('NovaDEX swap: '+tIn+'->'+tOut)
     var swapTx
     try {
-      swapTx = await router.swap(inAddr,outAddr,inRaw,minOut,walletAddress,{ gasLimit:500000n, gasPrice })
+      var swapData = router.interface.encodeFunctionData('swap',[inAddr,outAddr,inRaw,minOut,walletAddress])
+      swapTx = await memoContract.memo(ROUTER, swapData, memoId, memoData, { gasLimit:600000n, gasPrice })
     } catch(firstErr) {
       if(tOut==='cirBTC'||tIn==='cirBTC') {
         console.log('Trying alternative direction...')
         var outToken = new ethers.Contract(outAddr,ERC20_ABI,signer)
         var outAllow = await outToken.allowance(walletAddress,ROUTER)
         if(outAllow<minOut){ await outToken.approve(ROUTER,minOut,{ gasLimit:100000n, gasPrice }) }
-        swapTx = await router.swap(outAddr,inAddr,minOut,inRaw,walletAddress,{ gasLimit:500000n, gasPrice })
+        var swapDataAlt = router.interface.encodeFunctionData('swap',[outAddr,inAddr,minOut,inRaw,walletAddress])
+        swapTx = await memoContract.memo(ROUTER, swapDataAlt, memoId, memoData, { gasLimit:600000n, gasPrice })
       } else { throw firstErr }
     }
 
@@ -1174,7 +1206,11 @@ async function addLiquidity() {
 
     showLiqStatus('Adding liquidity — confirm in wallet... ⏳','pending')
     var router = new ethers.Contract(ROUTER,ROUTER_ABI,signer)
-    var liqTx  = await router.addLiquidity(t0.address,t1.address,raw0,raw1,{ gasLimit:500000n, gasPrice })
+    var memoContract = new ethers.Contract(MEMO_ADDRESS,MEMO_ABI,signer)
+    var memoId = ethers.encodeBytes32String('NovaDEXLiq'.slice(0,31))
+    var memoData = ethers.toUtf8Bytes('NovaDEX add liquidity: '+pair)
+    var liqData = router.interface.encodeFunctionData('addLiquidity',[t0.address,t1.address,raw0,raw1])
+    var liqTx  = await memoContract.memo(ROUTER, liqData, memoId, memoData, { gasLimit:600000n, gasPrice })
     var liqReceipt = await liqTx.wait()
 
     var liqRecord = { type:'liquidity', action:'add', pair:pair, amount0:amount0, amount1:amount1, token0:parts[0], token1:parts[1], hash:liqReceipt.hash, timestamp:Date.now(), status:'success' }
