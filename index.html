@@ -696,43 +696,72 @@ let priceChart   = null
 let isDark       = true
 let txFilter     = 'all'
 
-// ── SHARED LEADERBOARD STORAGE HELPERS ────────────────────────
-// Shared key per wallet: "lb:<address>" -> { swapVolume, liqVolume, lastUpdated }
+// ── SHARED LEADERBOARD — SUPABASE BACKEND ─────────────────────
+const SUPABASE_URL = 'https://imgknvwifcxwfftkpkyt.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImltZ2tudndpZmN4d2ZmdGtwa3l0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjU5NDIsImV4cCI6MjA5NzQ0MTk0Mn0._N-kb1FNq7PKRkP4AC6NAZjFaaqIj3Y56Ih0spz6qLM'
+const SUPABASE_HEADERS = {
+  'Content-Type': 'application/json',
+  'apikey': SUPABASE_ANON_KEY,
+  'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+}
+
 async function lbRecordActivity(address, swapAdd, liqAdd) {
   try {
-    const key = 'lb:' + address.toLowerCase()
-    let current = { swapVolume: 0, liqVolume: 0 }
-    try {
-      const existing = await window.storage.get(key, true)
-      if (existing && existing.value) current = JSON.parse(existing.value)
-    } catch(e) { /* key doesn't exist yet, use default */ }
-    current.swapVolume = (current.swapVolume || 0) + (swapAdd || 0)
-    current.liqVolume  = (current.liqVolume  || 0) + (liqAdd  || 0)
-    current.lastUpdated = Date.now()
-    await window.storage.set(key, JSON.stringify(current), true)
+    var addr = address.toLowerCase()
+
+    // Read current row, if any
+    var getRes = await fetch(
+      SUPABASE_URL + '/rest/v1/leaderboard?wallet_address=eq.' + addr + '&select=*',
+      { headers: SUPABASE_HEADERS }
+    )
+    var rows = await getRes.json()
+    var existing = (rows && rows.length > 0) ? rows[0] : null
+
+    var newSwap = (existing ? parseFloat(existing.swap_volume) : 0) + (swapAdd || 0)
+    var newLiq  = (existing ? parseFloat(existing.liquidity_volume) : 0) + (liqAdd || 0)
+
+    if (existing) {
+      // Update existing wallet's row
+      await fetch(
+        SUPABASE_URL + '/rest/v1/leaderboard?wallet_address=eq.' + addr,
+        {
+          method: 'PATCH',
+          headers: SUPABASE_HEADERS,
+          body: JSON.stringify({ swap_volume: newSwap, liquidity_volume: newLiq, last_updated: new Date().toISOString() })
+        }
+      )
+    } else {
+      // Insert new wallet row
+      await fetch(
+        SUPABASE_URL + '/rest/v1/leaderboard',
+        {
+          method: 'POST',
+          headers: SUPABASE_HEADERS,
+          body: JSON.stringify({ wallet_address: addr, swap_volume: newSwap, liquidity_volume: newLiq })
+        }
+      )
+    }
   } catch(e) { console.log('Leaderboard record error:', e) }
 }
 
 async function lbLoadAll() {
   try {
-    const list = await window.storage.list('lb:', true)
-    if (!list || !list.keys) return []
-    const entries = []
-    for (const key of list.keys) {
-      try {
-        const result = await window.storage.get(key, true)
-        if (result && result.value) {
-          const data = JSON.parse(result.value)
-          const addr = key.replace('lb:', '')
-          entries.push({
-            address: addr,
-            swapVolume: data.swapVolume || 0,
-            liqVolume: data.liqVolume || 0,
-            score: (data.swapVolume || 0) + (data.liqVolume || 0)
-          })
-        }
-      } catch(e) { console.log('Leaderboard entry read error:', key, e) }
-    }
+    var res = await fetch(
+      SUPABASE_URL + '/rest/v1/leaderboard?select=*&order=swap_volume.desc',
+      { headers: SUPABASE_HEADERS }
+    )
+    var rows = await res.json()
+    if (!Array.isArray(rows)) return []
+    var entries = rows.map(function(row){
+      var swapVolume = parseFloat(row.swap_volume) || 0
+      var liqVolume  = parseFloat(row.liquidity_volume) || 0
+      return {
+        address: row.wallet_address,
+        swapVolume: swapVolume,
+        liqVolume: liqVolume,
+        score: swapVolume + liqVolume
+      }
+    })
     entries.sort(function(a,b){ return b.score - a.score })
     return entries
   } catch(e) {
