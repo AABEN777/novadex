@@ -513,7 +513,7 @@
 const RS='0x7ae6DE7aD0E7e5C8802c9a9B4Cedf258D792e3a5'
 const RL='0xA3E49f3B007C15076ca73e71A896F5EC86C596Bf'
 const FC='0xd7EB001b35373353f0d52E1AEf9a597051034A1F'
-const LC='0xd8de96A732B26B9c0360eFa923e2497e9CA3B10B'
+const LC='0xBEd95302891CE70bFB32C9d5818aC11e843bc580'
 const MC='0x5294E9927c3306DcBaDb03fe70b92e01cCede505'
 const TK={USDC:{address:'0x3600000000000000000000000000000000000000',decimals:6},EURC:{address:'0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a',decimals:6},cirBTC:{address:'0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF',decimals:8}}
 const ARC_ID=5042002,ARC_HEX='0x4CA052',RPC='https://rpc.testnet.arc.network',EXP='https://testnet.arcscan.app'
@@ -908,7 +908,8 @@ async function depositCollateral(){
     var lc=new ethers.Contract(LC,LDA,signer)
     await(await lc.depositCollateral(raw,{gasLimit:200000n,gasPrice:gp})).wait()
     ss('lendDepositStatus','Deposited '+amt+' USDC as collateral ✓','success')
-    document.getElementById('lendDepositAmt').value='';loadLendBal()
+    saveTx({type:'lending',action:'deposit',token:'USDC',amount:amt,timestamp:Date.now(),status:'success'})
+    document.getElementById('lendDepositAmt').value='';loadLendBal();renderHistory()
   }catch(err){ss('lendDepositStatus','❌ '+(err?.reason||err?.shortMessage||err?.message||'Failed'),'error')}
 }
 async function borrowTokens(){
@@ -922,7 +923,8 @@ async function borrowTokens(){
     var lc=new ethers.Contract(LC,LDA,signer)
     await(await lc.borrow(TK[tok].address,raw,{gasLimit:300000n,gasPrice:gp})).wait()
     ss('lendBorrowStatus','Borrowed '+amt+' '+tok+' ✓','success')
-    document.getElementById('lendBorrowAmt').value='';fetchBals()
+    saveTx({type:'lending',action:'borrow',token:tok,amount:amt,timestamp:Date.now(),status:'success'})
+    document.getElementById('lendBorrowAmt').value='';fetchBals();renderHistory()
   }catch(err){ss('lendBorrowStatus','❌ '+(err?.reason||err?.shortMessage||err?.message||'Failed'),'error')}
 }
 async function repayLoan(){
@@ -939,7 +941,8 @@ async function repayLoan(){
     var lcs=new ethers.Contract(LC,LDA,signer)
     await(await lcs.repay({gasLimit:300000n,gasPrice:gp})).wait()
     ss('lendRepayStatus','Loan repaid. Collateral returned ✓','success')
-    loadPosition();fetchBals()
+    saveTx({type:'lending',action:'repay',token:'USDC',amount:0,timestamp:Date.now(),status:'success'})
+    loadPosition();fetchBals();renderHistory()
   }catch(err){ss('lendRepayStatus','❌ '+(err?.reason||err?.shortMessage||err?.message||'Failed'),'error')}
 }
 
@@ -986,16 +989,30 @@ function renderHistory(){
   var c=document.getElementById('historyContent')
   if(!connected){c.innerHTML='<div class="wrq"><svg><use href="#i-lock"/></svg><div class="wrq-t">Wallet required</div><div class="wrq-s">Connect to view your history</div></div>';return}
   var txs=loadTxs()
-  var fh='<div class="trow"><button class="tfbtn'+(txFilter==='all'?' active':'')+'" data-f="all">All</button><button class="tfbtn'+(txFilter==='swap'?' active':'')+'" data-f="swap">Swaps</button><button class="tfbtn'+(txFilter==='liquidity'?' active':'')+'" data-f="liquidity">Liquidity</button></div>'
+  var validFilters=['all','swap','liquidity','lending']
+  var fh2='<div class="trow"><button class="tfbtn'+(txFilter==='all'?' active':'')+'" data-f="all">All</button><button class="tfbtn'+(txFilter==='swap'?' active':'')+'" data-f="swap">Swaps</button><button class="tfbtn'+(txFilter==='liquidity'?' active':'')+'" data-f="liquidity">Liquidity</button><button class="tfbtn'+(txFilter==='lending'?' active':'')+'" data-f="lending">Lending</button></div>'
   var ft=txFilter==='all'?txs:txs.filter(function(t){return t.type===txFilter})
-  if(ft.length===0){c.innerHTML=fh+'<div class="empty"><svg><use href="#i-clock"/></svg><div>'+(txFilter==='all'?'No activity yet. Make a swap to get started.':'No '+txFilter+' transactions yet.')+'</div></div>'}
-  else{c.innerHTML=fh+ft.map(function(tx){
+  if(ft.length===0){c.innerHTML=fh2+'<div class="empty"><svg><use href="#i-clock"/></svg><div>'+(txFilter==='all'?'No activity yet. Make a swap to get started.':'No '+txFilter+' transactions yet.')+'</div></div>'}
+  else{c.innerHTML=fh2+ft.map(function(tx){
     var il=tx.type==='liquidity'
+    var ild=tx.type==='lending'
     var sh=tx.hash?tx.hash.slice(0,10)+'...':'—',lk=tx.hash?EXP+'/tx/'+tx.hash:'#'
-    var pt=il?(tx.action==='add'?'Add ':'Remove ')+tx.pair:tx.tokenIn+' → '+tx.tokenOut
-    var ah=il?'<div class="txao">+'+tx.amount0+' '+tx.token0+'</div><div class="txao">+'+tx.amount1+' '+tx.token1+'</div>':'<div class="txao">+'+tx.amountOut+' '+tx.tokenOut+'</div><div class="txai">-'+tx.amountIn+' '+tx.tokenIn+'</div>'
-    var bg=il?'liquidity':tx.status
-    return'<div class="txi"><div class="txii'+(il?' liq':'')+'"><svg><use href="'+(il?'#i-drop':'#i-swap')+'"/></svg></div><div class="txin"><div class="txip">'+pt+'</div><div class="txit">'+new Date(tx.timestamp).toLocaleString()+'</div><a class="txil" href="'+lk+'" target="_blank">'+sh+' ↗</a></div><div class="txia">'+ah+'<span class="tbg '+bg+'">'+bg+'</span></div></div>'
+    var pt,ah,bg,ico,icoc
+    if(ild){
+      var actionLabel=tx.action==='deposit'?'Deposit Collateral':tx.action==='borrow'?'Borrow':tx.action==='repay'?'Repay Loan':'Lending'
+      pt=actionLabel+(tx.token?' · '+tx.token:'')
+      ah=tx.action==='deposit'?'<div class="txao">+'+tx.amount+' USDC collateral</div>':tx.action==='borrow'?'<div class="txao">+'+tx.amount+' '+tx.token+'</div>':'<div class="txao">Loan repaid ✓</div>'
+      bg='liquidity';ico='#i-bank';icoc=' liq'
+    } else if(il){
+      pt=(tx.action==='add'?'Add ':'Remove ')+tx.pair
+      ah='<div class="txao">+'+tx.amount0+' '+tx.token0+'</div><div class="txao">+'+tx.amount1+' '+tx.token1+'</div>'
+      bg='liquidity';ico='#i-drop';icoc=' liq'
+    } else {
+      pt=tx.tokenIn+' → '+tx.tokenOut
+      ah='<div class="txao">+'+tx.amountOut+' '+tx.tokenOut+'</div><div class="txai">-'+tx.amountIn+' '+tx.tokenIn+'</div>'
+      bg=tx.status;ico='#i-swap';icoc=''
+    }
+    return'<div class="txi"><div class="txii'+icoc+'"><svg><use href="'+ico+'"/></svg></div><div class="txin"><div class="txip">'+pt+'</div><div class="txit">'+new Date(tx.timestamp).toLocaleString()+'</div><a class="txil" href="'+lk+'" target="_blank">'+sh+' ↗</a></div><div class="txia">'+ah+'<span class="tbg '+bg+'">'+bg+'</span></div></div>'
   }).join('')}
   c.querySelectorAll('.tfbtn').forEach(function(btn){btn.addEventListener('click',function(){txFilter=btn.dataset.f;renderHistory()})})
 }
