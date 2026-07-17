@@ -540,7 +540,8 @@ const SBK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6
 const SBH={'Content-Type':'application/json','apikey':SBK,'Authorization':'Bearer '+SBK}
 
 var provider,signer,walletAddress,connected=false,totalVolume=0,priceChart=null,isDark=true,txFilter='all'
-var readProvider=new ethers.JsonRpcProvider(RPC)
+var arcNetwork=ethers.Network.from(ARC_ID)
+var readProvider=new ethers.JsonRpcProvider(RPC,arcNetwork,{staticNetwork:arcNetwork})
 
 window.addEventListener('DOMContentLoaded',function(){
   document.getElementById('logoBtn').addEventListener('click',function(){showPage('home')})
