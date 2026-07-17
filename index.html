@@ -727,7 +727,7 @@ async function fetchBals(){
   document.getElementById('balanceOut').textContent=bo+' '+to
 }
 async function getBal(sym){
-  try{var t=TK[sym];if(!t)return'0.00';var c=new ethers.Contract(t.address,E20,provider);var [r,d]=await Promise.all([c.balanceOf(walletAddress),c.decimals()]);return parseFloat(ethers.formatUnits(r,d)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:6})}catch{return'0.00'}
+  try{var t=TK[sym];if(!t)return'0.00';var c=new ethers.Contract(t.address,E20,provider);var [r,d]=await Promise.all([c.balanceOf(walletAddress),c.decimals()]);return parseFloat(ethers.formatUnits(r,d)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:6})}catch(e){console.log('getBal error for '+sym+':',e);return'0.00'}
 }
 function setMax(){if(!connected)return;var n=parseFloat(document.getElementById('balanceIn').textContent.replace(/,/g,''));if(!isNaN(n)&&n>0){document.getElementById('amountIn').value=n;updateQuote()}}
 async function chkBal(sym,amt){try{var t=TK[sym];if(!t)return true;var c=new ethers.Contract(t.address,E20,provider);var r=await c.balanceOf(walletAddress);var d=await c.decimals();return parseFloat(ethers.formatUnits(r,d))>=amt}catch{return true}}
@@ -868,7 +868,7 @@ async function loadPoolShare(){
       }catch(e){console.log('pool:',p.n,e)}
     }
     c.innerHTML=html||'<div class="empty">No positions found</div>'
-  }catch(e){c.innerHTML='<div class="empty">Error loading. Try again.</div>'}
+  }catch(e){c.innerHTML='<div class="empty">Error loading: '+(e?.reason||e?.shortMessage||e?.message||String(e))+'</div>';console.log('poolshare error:',e)}
 }
 
 function setLendTab(tab){
@@ -937,7 +937,7 @@ async function loadPosition(){
       +'<div class="prow"><span class="prowl">Status</span><span class="prowv">'+(hasLoan?'Active loans':'No loans')+'</span></div>'
       +loanRows
       +(hasLoan?'<div class="hbar-wrap" style="margin-top:12px"><div class="hbar-lbl"><span style="color:var(--t3)">Health factor</span><span class="prowv">'+hn+'%</span></div><div class="hbar-t"><div class="hbar-f '+hcl+'" style="width:'+hp+'%"></div></div></div>':'')
-  }catch(e){c.innerHTML='<div class="empty">Error loading position</div>';console.log(e)}
+  }catch(e){c.innerHTML='<div class="empty">Error loading position: '+(e?.reason||e?.shortMessage||e?.message||String(e))+'</div>';console.log(e)}
 }
 async function depositCollateral(){
   if(!connected){ss('lendDepositStatus','Connect your wallet first','error');return}
