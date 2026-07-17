@@ -416,11 +416,20 @@
     </div>
     <div id="lendRepayPanel" style="display:none">
       <div class="card">
-        <div style="font-size:.867rem;color:var(--t2);margin-bottom:16px;line-height:1.6">Repaying returns your full USDC collateral. The amount includes principal plus accrued interest at 5% APR.</div>
+        <div style="font-size:.867rem;color:var(--t2);margin-bottom:16px;line-height:1.6">Select which loan to repay. Repaying a loan settles principal plus accrued interest at 5% APR. Your collateral stays deposited until you repay all loans.</div>
+        <div class="flbl" style="margin-bottom:8px">Loan to repay</div>
+        <select class="selful" id="lendRepayToken">
+          <option value="USDC">USDC</option>
+          <option value="EURC">EURC</option>
+          <option value="cirBTC">cirBTC</option>
+        </select>
+        <div style="height:10px"></div>
         <div class="rrow"><span>Outstanding loan</span><span class="rrowv" id="lendRepayOwed">—</span></div>
         <div class="rrow"><span>Interest accrued</span><span class="rrowv" id="lendRepayInterest">—</span></div>
-        <div class="rrow"><span>Collateral to return</span><span class="rrowv" id="lendRepayCollateral">—</span></div>
-        <button class="btnp" id="lendRepayBtn">Repay &amp; Withdraw Collateral</button>
+        <div class="rrow"><span>Your collateral</span><span class="rrowv" id="lendRepayCollateral">—</span></div>
+        <div id="lendRepayExtra"></div>
+        <button class="btnp" id="lendRepayBtn">Repay This Loan</button>
+        <button class="btng" id="lendRepayAllBtn" style="margin-top:8px">Repay All &amp; Withdraw Collateral</button>
         <div class="sbox" id="lendRepayStatus"></div>
       </div>
     </div>
@@ -513,7 +522,7 @@
 const RS='0x7ae6DE7aD0E7e5C8802c9a9B4Cedf258D792e3a5'
 const RL='0xA3E49f3B007C15076ca73e71A896F5EC86C596Bf'
 const FC='0xd7EB001b35373353f0d52E1AEf9a597051034A1F'
-const LC='0xBEd95302891CE70bFB32C9d5818aC11e843bc580'
+const LC='0xe150cfB9E2F702A13F5B5cC68A23681d34b7b384'
 const MC='0x5294E9927c3306DcBaDb03fe70b92e01cCede505'
 const TK={USDC:{address:'0x3600000000000000000000000000000000000000',decimals:6},EURC:{address:'0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a',decimals:6},cirBTC:{address:'0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF',decimals:8}}
 const ARC_ID=5042002,ARC_HEX='0x4CA052',RPC='https://rpc.testnet.arc.network',EXP='https://testnet.arcscan.app'
@@ -522,7 +531,7 @@ const RSA=['function swap(address,address,uint256,uint256,address) returns(uint2
 const RLA=['function addLiquidity(address,address,uint256,uint256) returns(address)']
 const FCA=['function getPair(address,address) view returns(address)']
 const PRA=['function getReserves() view returns(uint256,uint256)','function totalSupply() view returns(uint256)']
-const LDA=['function depositCollateral(uint256)','function borrow(address,uint256)','function repay()','function getPosition(address) view returns(uint256,address,uint256,uint256,uint256,uint256,bool)','function getPoolBalance(address) view returns(uint256)']
+const LDA=['function depositCollateral(uint256)','function withdrawCollateral(uint256)','function borrow(address,uint256)','function repayToken(address)','function repayAll()','function getLoan(address,address) view returns(uint256,uint256,uint256,bool)','function getHealthFactor(address) view returns(uint256)','function getPoolBalance(address) view returns(uint256)','function collateral(address) view returns(uint256)','function getTotalDebtUSD(address) view returns(uint256)']
 const MMA=['function memo(address,bytes,bytes32,bytes) external']
 const SR={'USDC-EURC':0.92,'EURC-USDC':1.087,'USDC-cirBTC':0.000015,'cirBTC-USDC':66000,'EURC-cirBTC':0.000014,'cirBTC-EURC':71000}
 const TXK='novadex_v4_txs'
@@ -576,6 +585,8 @@ window.addEventListener('DOMContentLoaded',function(){
   document.getElementById('lendDepositTab').addEventListener('click',function(){setLendTab('deposit')})
   document.getElementById('lendBorrowTab').addEventListener('click',function(){setLendTab('borrow');loadPoolBal()})
   document.getElementById('lendRepayTab').addEventListener('click',function(){setLendTab('repay');loadRepayDetails()})
+  document.getElementById('lendRepayToken').addEventListener('change',loadRepayDetails)
+  document.getElementById('lendRepayAllBtn').addEventListener('click',repayAllLoans)
   document.getElementById('lendPositionTab').addEventListener('click',function(){setLendTab('position');loadPosition()})
   document.getElementById('lendDepositBtn').addEventListener('click',depositCollateral)
   document.getElementById('lendBorrowBtn').addEventListener('click',borrowTokens)
@@ -863,36 +874,54 @@ async function loadPoolBal(){
 async function loadRepayDetails(){
   if(!connected||!provider)return
   try{
-    var lc=new ethers.Contract(LC,LDA,provider),pos=await lc.getPosition(walletAddress)
-    if(!pos[6]){ss('lendRepayStatus','No active loan','error');return}
-    var bt=Object.keys(TK).find(function(k){return TK[k].address.toLowerCase()===pos[1].toLowerCase()})||'USDC'
-    var dec=TK[bt].decimals
-    document.getElementById('lendRepayOwed').textContent=parseFloat(ethers.formatUnits(pos[2],dec)).toFixed(6)+' '+bt
-    document.getElementById('lendRepayInterest').textContent=parseFloat(ethers.formatUnits(pos[3],dec)).toFixed(6)+' '+bt
-    document.getElementById('lendRepayCollateral').textContent=parseFloat(ethers.formatUnits(pos[0],6)).toFixed(2)+' USDC'
-  }catch(e){console.log('repay:',e)}
+    var lc=new ethers.Contract(LC,LDA,provider)
+    var sel=document.getElementById('lendRepayToken').value
+    var loan=await lc.getLoan(walletAddress,TK[sel].address)
+    var col=await lc.collateral(walletAddress)
+    var colFmt=parseFloat(ethers.formatUnits(col,6)).toFixed(2)
+    document.getElementById('lendRepayCollateral').textContent=colFmt+' USDC'
+    if(!loan[3]){
+      document.getElementById('lendRepayOwed').textContent='No active '+sel+' loan'
+      document.getElementById('lendRepayInterest').textContent='—'
+      return
+    }
+    var dec=TK[sel].decimals
+    document.getElementById('lendRepayOwed').textContent=parseFloat(ethers.formatUnits(loan[2],dec)).toFixed(6)+' '+sel
+    document.getElementById('lendRepayInterest').textContent=parseFloat(ethers.formatUnits(loan[1],dec)).toFixed(6)+' '+sel
+  }catch(e){console.log('repay details:',e)}
 }
 async function loadPosition(){
   var c=document.getElementById('lendPositionContent')
   if(!connected){c.innerHTML='<div class="wrq"><svg><use href="#i-lock"/></svg><div class="wrq-t">Wallet required</div><div class="wrq-s">Connect to view position</div></div>';return}
   c.innerHTML='<div class="empty">Loading...</div>'
   try{
-    var lc=new ethers.Contract(LC,LDA,provider),pos=await lc.getPosition(walletAddress)
-    var col=parseFloat(ethers.formatUnits(pos[0],6)).toFixed(2),active=pos[6]
-    if(!active&&parseFloat(col)===0){c.innerHTML='<div class="empty">No active position. Deposit USDC to get started.</div>';return}
-    var bt=active?Object.keys(TK).find(function(k){return TK[k].address.toLowerCase()===pos[1].toLowerCase()})||'?':'—'
-    var dec=active&&TK[bt]?TK[bt].decimals:6
-    var bwd=active?parseFloat(ethers.formatUnits(pos[2],dec)).toFixed(6):'0'
-    var int=active?parseFloat(ethers.formatUnits(pos[3],dec)).toFixed(6):'0'
-    var hf=active?pos[5].toString():'—',hn=active?parseInt(hf):200
-    var hcl=hn>=150?'safe':hn>=120?'warn':'danger',hp=active?Math.min(hn,200)/2:100
-    c.innerHTML='<div class="prow"><span class="prowl">Collateral</span><span class="prowv">'+col+' USDC</span></div>'
-      +(active?'<div class="prow"><span class="prowl">Borrowed</span><span class="prowv">'+bwd+' '+bt+'</span></div>'
-        +'<div class="prow"><span class="prowl">Interest</span><span class="prowv">'+int+' '+bt+'</span></div>'
-        +'<div class="prow"><span class="prowl">Status</span><span class="prowv">Active</span></div>'
-        +'<div class="hbar-wrap"><div class="hbar-lbl"><span style="color:var(--t3)">Health factor</span><span class="prowv">'+hf+'%</span></div>'
-        +'<div class="hbar-t"><div class="hbar-f '+hcl+'" style="width:'+hp+'%"></div></div></div>'
-        :'<div class="prow"><span class="prowl">Status</span><span class="prowv">No active loan</span></div>')
+    var lc=new ethers.Contract(LC,LDA,provider)
+    var col=await lc.collateral(walletAddress)
+    var colFmt=parseFloat(ethers.formatUnits(col,6)).toFixed(2)
+    var tokens=['USDC','EURC','cirBTC']
+    var hasLoan=false,loanRows=''
+    for(var i=0;i<tokens.length;i++){
+      var tok=tokens[i],loan=await lc.getLoan(walletAddress,TK[tok].address)
+      if(loan[3]){
+        hasLoan=true
+        var dec=TK[tok].decimals
+        var pri=parseFloat(ethers.formatUnits(loan[0],dec)).toFixed(6)
+        var itr=parseFloat(ethers.formatUnits(loan[1],dec)).toFixed(6)
+        var owe=parseFloat(ethers.formatUnits(loan[2],dec)).toFixed(6)
+        loanRows+='<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--bd)"><div style="font-size:.767rem;font-weight:600;color:var(--ac);margin-bottom:6px">'+tok+' Loan</div>'
+          +'<div class="prow"><span class="prowl">Principal</span><span class="prowv">'+pri+' '+tok+'</span></div>'
+          +'<div class="prow"><span class="prowl">Interest</span><span class="prowv">'+itr+' '+tok+'</span></div>'
+          +'<div class="prow"><span class="prowl">Total owed</span><span class="prowv">'+owe+' '+tok+'</span></div></div>'
+      }
+    }
+    if(parseFloat(colFmt)===0&&!hasLoan){c.innerHTML='<div class="empty">No active position. Deposit USDC to get started.</div>';return}
+    var hn=200
+    if(hasLoan){var hf=await lc.getHealthFactor(walletAddress);hn=parseInt(hf.toString())}
+    var hcl=hn>=150?'safe':hn>=120?'warn':'danger',hp=Math.min(hn,200)/2
+    c.innerHTML='<div class="prow"><span class="prowl">Collateral (USDC)</span><span class="prowv">'+colFmt+'</span></div>'
+      +'<div class="prow"><span class="prowl">Status</span><span class="prowv">'+(hasLoan?'Active loans':'No loans')+'</span></div>'
+      +loanRows
+      +(hasLoan?'<div class="hbar-wrap" style="margin-top:12px"><div class="hbar-lbl"><span style="color:var(--t3)">Health factor</span><span class="prowv">'+hn+'%</span></div><div class="hbar-t"><div class="hbar-f '+hcl+'" style="width:'+hp+'%"></div></div></div>':'')
   }catch(e){c.innerHTML='<div class="empty">Error loading position</div>';console.log(e)}
 }
 async function depositCollateral(){
@@ -906,9 +935,10 @@ async function depositCollateral(){
     if(al<raw)await(await uc.approve(LC,raw,{gasLimit:100000n,gasPrice:gp})).wait()
     ss('lendDepositStatus','Depositing — confirm in wallet... ⏳','pending')
     var lc=new ethers.Contract(LC,LDA,signer)
-    await(await lc.depositCollateral(raw,{gasLimit:200000n,gasPrice:gp})).wait()
+    var txn=await lc.depositCollateral(raw,{gasLimit:200000n,gasPrice:gp})
+    var rec=await txn.wait()
     ss('lendDepositStatus','Deposited '+amt+' USDC as collateral ✓','success')
-    saveTx({type:'lending',action:'deposit',token:'USDC',amount:amt,timestamp:Date.now(),status:'success'})
+    saveTx({type:'lending',action:'deposit',token:'USDC',amount:amt,hash:rec.hash,timestamp:Date.now(),status:'success'})
     document.getElementById('lendDepositAmt').value='';loadLendBal();renderHistory()
   }catch(err){ss('lendDepositStatus','❌ '+(err?.reason||err?.shortMessage||err?.message||'Failed'),'error')}
 }
@@ -921,27 +951,60 @@ async function borrowTokens(){
   try{
     ss('lendBorrowStatus','Borrowing — confirm in wallet... ⏳','pending')
     var lc=new ethers.Contract(LC,LDA,signer)
-    await(await lc.borrow(TK[tok].address,raw,{gasLimit:300000n,gasPrice:gp})).wait()
+    var btx=await lc.borrow(TK[tok].address,raw,{gasLimit:300000n,gasPrice:gp})
+    var brec=await btx.wait()
     ss('lendBorrowStatus','Borrowed '+amt+' '+tok+' ✓','success')
-    saveTx({type:'lending',action:'borrow',token:tok,amount:amt,timestamp:Date.now(),status:'success'})
+    saveTx({type:'lending',action:'borrow',token:tok,amount:amt,hash:brec.hash,timestamp:Date.now(),status:'success'})
     document.getElementById('lendBorrowAmt').value='';fetchBals();renderHistory()
   }catch(err){ss('lendBorrowStatus','❌ '+(err?.reason||err?.shortMessage||err?.message||'Failed'),'error')}
 }
 async function repayLoan(){
   if(!connected){ss('lendRepayStatus','Connect your wallet first','error');return}
+  var tok=document.getElementById('lendRepayToken')?document.getElementById('lendRepayToken').value:'USDC'
   try{
-    var lc=new ethers.Contract(LC,LDA,provider),pos=await lc.getPosition(walletAddress)
-    if(!pos[6]){ss('lendRepayStatus','No active loan to repay','error');return}
-    var bt=Object.keys(TK).find(function(k){return TK[k].address.toLowerCase()===pos[1].toLowerCase()})||'USDC'
-    var owed=pos[4],gp=(await provider.getFeeData()).gasPrice
-    ss('lendRepayStatus','Approving repayment... ⏳','pending')
-    var tc=new ethers.Contract(TK[bt].address,E20,signer);var al=await tc.allowance(walletAddress,LC)
+    var lc=new ethers.Contract(LC,LDA,provider)
+    var loan=await lc.getLoan(walletAddress,TK[tok].address)
+    if(!loan[3]){ss('lendRepayStatus','No active '+tok+' loan to repay','error');return}
+    var owed=loan[2],gp=(await provider.getFeeData()).gasPrice
+    ss('lendRepayStatus','Approving '+tok+' repayment... ⏳','pending')
+    var tc=new ethers.Contract(TK[tok].address,E20,signer)
+    var al=await tc.allowance(walletAddress,LC)
     if(al<owed)await(await tc.approve(LC,owed,{gasLimit:100000n,gasPrice:gp})).wait()
-    ss('lendRepayStatus','Repaying — confirm in wallet... ⏳','pending')
+    ss('lendRepayStatus','Repaying '+tok+' — confirm in wallet... ⏳','pending')
     var lcs=new ethers.Contract(LC,LDA,signer)
-    await(await lcs.repay({gasLimit:300000n,gasPrice:gp})).wait()
-    ss('lendRepayStatus','Loan repaid. Collateral returned ✓','success')
-    saveTx({type:'lending',action:'repay',token:'USDC',amount:0,timestamp:Date.now(),status:'success'})
+    var rtx=await lcs.repayToken(TK[tok].address,{gasLimit:300000n,gasPrice:gp})
+    var rrec=await rtx.wait()
+    ss('lendRepayStatus',tok+' loan repaid ✓','success')
+    saveTx({type:'lending',action:'repay',token:tok,amount:0,hash:rrec.hash,timestamp:Date.now(),status:'success'})
+    loadPosition();fetchBals();renderHistory()
+  }catch(err){ss('lendRepayStatus','❌ '+(err?.reason||err?.shortMessage||err?.message||'Failed'),'error')}
+}
+
+async function repayAllLoans(){
+  if(!connected){ss('lendRepayStatus','Connect your wallet first','error');return}
+  try{
+    var lc=new ethers.Contract(LC,LDA,provider)
+    var tokens=['USDC','EURC','cirBTC']
+    var gp=(await provider.getFeeData()).gasPrice
+    var anyActive=false
+    for(var i=0;i<tokens.length;i++){
+      var tok=tokens[i]
+      var loan=await lc.getLoan(walletAddress,TK[tok].address)
+      if(loan[3]){
+        anyActive=true
+        ss('lendRepayStatus','Approving '+tok+' repayment... ⏳','pending')
+        var tc=new ethers.Contract(TK[tok].address,E20,signer)
+        var al=await tc.allowance(walletAddress,LC)
+        if(al<loan[2])await(await tc.approve(LC,loan[2],{gasLimit:100000n,gasPrice:gp})).wait()
+      }
+    }
+    if(!anyActive){ss('lendRepayStatus','No active loans to repay','error');return}
+    ss('lendRepayStatus','Repaying all loans — confirm in wallet... ⏳','pending')
+    var lcs=new ethers.Contract(LC,LDA,signer)
+    var rtx=await lcs.repayAll({gasLimit:500000n,gasPrice:gp})
+    var rrec=await rtx.wait()
+    ss('lendRepayStatus','All loans repaid. Collateral returned ✓','success')
+    saveTx({type:'lending',action:'repay',token:'ALL',amount:0,hash:rrec.hash,timestamp:Date.now(),status:'success'})
     loadPosition();fetchBals();renderHistory()
   }catch(err){ss('lendRepayStatus','❌ '+(err?.reason||err?.shortMessage||err?.message||'Failed'),'error')}
 }
