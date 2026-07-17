@@ -626,8 +626,22 @@ function showPage(page,skipH){
   if(!skipH){var url=page==='home'?window.location.pathname:'#'+page;try{history.pushState({page:page},'',url)}catch(e){}}
   if(page==='history')renderHistory()
   if(page==='leaderboard')renderLeaderboard()
-  if(page==='swap')setTimeout(function(){buildChart(document.querySelector('.ctab.active').dataset.pair)},100)
-  if(page==='lending'&&connected){loadLendBal();loadPoolBal()}
+  if(page==='swap'){setTimeout(function(){buildChart(document.querySelector('.ctab.active').dataset.pair)},100);if(connected)fetchBals()}
+  if(page==='liquidity'&&connected){updateLiqLabels();fetchLiqBals();if(document.getElementById('liqSharePanel').style.display==='block')loadPoolShare()}
+  if(page==='lending'&&connected){loadLendBal();loadPoolBal();if(document.getElementById('lendPositionPanel').style.display==='block')loadPosition();if(document.getElementById('lendRepayPanel').style.display==='block')loadRepayDetails()}
+}
+
+function refreshCurrentPageData(){
+  if(!connected)return
+  if(document.getElementById('liquidityPage').classList.contains('active')){
+    updateLiqLabels();fetchLiqBals()
+    if(document.getElementById('liqSharePanel').style.display==='block')loadPoolShare()
+  }
+  if(document.getElementById('lendingPage').classList.contains('active')){
+    loadLendBal();loadPoolBal()
+    if(document.getElementById('lendPositionPanel').style.display==='block')loadPosition()
+    if(document.getElementById('lendRepayPanel').style.display==='block')loadRepayDetails()
+  }
 }
 
 function openMod(id){document.getElementById(id).classList.add('active')}
@@ -689,6 +703,7 @@ async function connectWallet(silent){
     localStorage.setItem('novadex_wallet_connected','true')
     if(!silent)ss2('statusBox','Connected to Arc Testnet','success')
     fetchBals();updateQuote();renderHistory()
+    refreshCurrentPageData()
     if(document.getElementById('leaderboardPage').classList.contains('active'))renderLeaderboard()
   }catch(err){console.log(err);if(!silent)ss2('statusBox','Connection failed: '+(err.message||String(err)),'error')}
 }
