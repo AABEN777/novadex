@@ -32,11 +32,11 @@
     .npill:hover{border-color:var(--ac)}
     .ndot{width:6px;height:6px;border-radius:50%}
     .ndot.green{background:var(--ok);box-shadow:0 0 6px var(--ok)}.ndot.yellow{background:var(--wn);box-shadow:0 0 6px var(--wn)}.ndot.red{background:var(--er);box-shadow:0 0 6px var(--er)}.ndot.grey{background:var(--t4)}
-    .btnc{height:34px;padding:0 14px;border-radius:var(--r);background:var(--ac);border:none;color:#fff;font-size:.867rem;font-weight:600;transition:opacity .15s}.btnc:hover{opacity:.88}
+    .btnc{height:34px;padding:0 14px;border-radius:var(--r);background:var(--ac);border:none;color:#fff;font-size:.867rem;font-weight:600;transition:all .15s;box-shadow:inset 0 1px 0 rgba(255,255,255,0.15)}.btnc:hover{opacity:.9;transform:translateY(-1px)}
     .wbadge{display:flex;align-items:center;gap:8px}
     .waddr{height:34px;padding:0 12px;border-radius:var(--r);border:1px solid var(--bdm);background:var(--sf);font-size:.8rem;font-weight:600;color:var(--t2);display:flex;align-items:center;gap:6px}
     .wdot{width:6px;height:6px;border-radius:50%;background:var(--ok)}
-    .bdiscon{height:34px;padding:0 12px;border-radius:var(--r);border:1px solid var(--erd);background:var(--erd);color:var(--er);font-size:.8rem;font-weight:600;transition:background .15s}.bdiscon:hover{background:rgba(224,82,82,.18)}
+    .bdiscon{width:34px;height:34px;padding:0;border-radius:var(--r);border:1px solid var(--bdm);background:var(--sf);color:var(--t3);display:flex;align-items:center;justify-content:center;transition:all .15s}.bdiscon:hover{border-color:var(--er);color:var(--er);background:var(--erd)}.bdiscon svg{width:14px;height:14px}
     .ham{width:36px;height:36px;border-radius:var(--r);border:1px solid var(--bdm);background:var(--sf);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;transition:border-color .15s}.ham:hover{border-color:var(--ac)}
     .hl{width:16px;height:1.5px;background:var(--t3);border-radius:2px;transition:all .25s}
     .ham.open .hl:nth-child(1){transform:rotate(45deg) translate(4px,4px)}.ham.open .hl:nth-child(2){opacity:0;transform:translateX(-4px)}.ham.open .hl:nth-child(3){transform:rotate(-45deg) translate(4px,-4px)}
@@ -51,7 +51,8 @@
     .sdiv{height:1px;background:var(--bd);margin:6px 0}
 
     /* CARDS & FORM */
-    .card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--rl);padding:20px;box-shadow:var(--sh)}
+    .card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--rl);padding:20px;box-shadow:var(--sh);position:relative}
+    .card::before{content:'';position:absolute;top:0;left:16px;right:16px;height:1px;background:linear-gradient(90deg,transparent,var(--bdm),transparent)}
     .flbl{display:flex;justify-content:space-between;align-items:center;font-size:.8rem;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
     .flbl-r{color:var(--t4);font-weight:400;text-transform:none;letter-spacing:0}.flbl-r span{color:var(--ac);cursor:pointer;font-weight:500}.flbl-r span:hover{color:var(--tx)}
     .irow{display:flex;align-items:center;background:var(--el);border:1px solid var(--bd);border-radius:var(--r);padding:12px 14px;gap:10px;transition:border-color .15s}.irow:focus-within{border-color:var(--acm)}
@@ -91,8 +92,12 @@
     .txii{width:32px;height:32px;border-radius:8px;background:var(--el);display:flex;align-items:center;justify-content:center;flex-shrink:0}.txii svg{width:14px;height:14px;color:var(--t3)}.txii.liq{background:var(--acd)}.txii.liq svg{color:var(--ac)}
     .txin{flex:1;min-width:0}.txip{font-size:.867rem;font-weight:600}.txit{font-size:.767rem;color:var(--t4);margin-top:1px}.txil{font-size:.767rem;color:var(--ac);display:block;margin-top:1px}.txil:hover{color:var(--tx)}
     .txia{text-align:right}.txao{font-size:.867rem;font-weight:600;color:var(--ok);font-variant-numeric:tabular-nums}.txai{font-size:.8rem;color:var(--t3);font-variant-numeric:tabular-nums}
-    .tbg{font-size:.7rem;font-weight:600;padding:2px 7px;border-radius:4px;display:inline-block;margin-top:3px}
-    .tbg.success{background:var(--okd);color:var(--ok)}.tbg.pending{background:var(--acd);color:var(--ac)}.tbg.failed{background:var(--erd);color:var(--er)}.tbg.liquidity{background:var(--acd);color:var(--ac)}
+    .tbg{font-size:.7rem;font-weight:600;padding:0;border-radius:0;display:inline-flex;align-items:center;gap:5px;margin-top:4px;background:transparent!important}
+    .tbg::before{content:'';width:5px;height:5px;border-radius:50%;flex-shrink:0}
+    .tbg.success{color:var(--t3)}.tbg.success::before{background:var(--ok)}
+    .tbg.pending{color:var(--t3)}.tbg.pending::before{background:var(--ac)}
+    .tbg.failed{color:var(--t3)}.tbg.failed::before{background:var(--er)}
+    .tbg.liquidity{color:var(--t3)}.tbg.liquidity::before{background:var(--ac)}
     .empty{padding:32px;text-align:center;color:var(--t4);font-size:.867rem;border:1px solid var(--bd);border-radius:var(--rl);background:var(--sf)}
     .empty svg{width:32px;height:32px;opacity:.3;margin-bottom:8px}
     .lbyou{background:var(--acd);border:1px solid var(--acm);border-radius:var(--rl);padding:14px 16px;margin-bottom:10px}
@@ -192,6 +197,7 @@
 <symbol id="i-sun" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.5 3.5l1.4 1.4M11.1 11.1l1.4 1.4M3.5 12.5l1.4-1.4M11.1 4.9l1.4-1.4"/></symbol>
 <symbol id="i-ud" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 10V3M5 10l-2-2M5 10l2-2M11 6v7M11 6l2 2M11 6L9 8"/></symbol>
 <symbol id="i-x" viewBox="0 0 16 16" fill="currentColor"><path d="M9.5 7.1L14.2 2h-1.1L9 6.4 5.8 2H2l4.9 7.2L2 14h1.1l4.3-4.9L11.2 14H15L9.5 7.1zm-1.5 1.7l-.5-.7L3.5 2.8h1.7l3.2 4.6.5.7 4.2 6h-1.7L8 8.8z"/></symbol>
+<symbol id="i-power" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v6"/><path d="M4.5 4a5.5 5.5 0 1 0 7 0"/></symbol>
 </defs>
 </svg>
 
@@ -284,9 +290,8 @@
     </div>
   </div>
   <div class="hcta">
-    <div class="hcta-t">Ready to start?</div>
-    <div class="hcta-s">NovaDEX is live on Arc Testnet. Connect your wallet and make your first on-chain swap.</div>
-    <button class="btn-hp" id="ctaSwapBtn">Open Swap</button>
+    <div class="hcta-t">Built for Arc, from day one.</div>
+    <div class="hcta-s">Non-custodial swaps, liquidity and lending — all settling on-chain in under a second.</div>
   </div>
   <div class="ftr">
     <div class="ftr-i">
@@ -546,7 +551,6 @@ var readProvider=new ethers.JsonRpcProvider(RPC,null,{staticNetwork:arcNetwork,b
 window.addEventListener('DOMContentLoaded',function(){
   document.getElementById('logoBtn').addEventListener('click',function(){showPage('home')})
   document.getElementById('heroSwapBtn').addEventListener('click',function(){showPage('swap')})
-  document.getElementById('ctaSwapBtn').addEventListener('click',function(){showPage('swap')})
   document.getElementById('cardSwap').addEventListener('click',function(){showPage('swap')})
   document.getElementById('cardLiquidity').addEventListener('click',function(){showPage('liquidity')})
   document.getElementById('cardLending').addEventListener('click',function(){showPage('lending')})
@@ -692,15 +696,27 @@ async function connectWallet(silent){
   if(!window.ethereum){if(!silent)ss2('statusBox','No EVM wallet detected. Install MetaMask or Rabby.','error');return}
   try{
     await window.ethereum.request({method:'eth_requestAccounts'})
-    try{await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:ARC_HEX}]})}
-    catch(se){if(se.code===4902||se.code===-32603){try{await window.ethereum.request({method:'wallet_addEthereumChain',params:[{chainId:ARC_HEX,chainName:'Arc Testnet',nativeCurrency:{name:'USDC',symbol:'USDC',decimals:6},rpcUrls:[RPC],blockExplorerUrls:[EXP]}]})}catch(ae){console.log(ae)}}}
-    await new Promise(function(r){setTimeout(r,800)})
+    var currentChainId=null
+    try{currentChainId=await window.ethereum.request({method:'eth_chainId'})}catch(ce){console.log('chainId check:',ce)}
+    if(currentChainId!==ARC_HEX){
+      try{
+        await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:ARC_HEX}]})
+      }catch(se){
+        if(se.code===4902){
+          try{await window.ethereum.request({method:'wallet_addEthereumChain',params:[{chainId:ARC_HEX,chainName:'Arc Testnet',nativeCurrency:{name:'USDC',symbol:'USDC',decimals:6},rpcUrls:[RPC],blockExplorerUrls:[EXP]}]})}
+          catch(ae){console.log('add chain:',ae)}
+        }else{
+          console.log('switch chain (non-fatal, chain likely already active):',se)
+        }
+      }
+    }
+    await new Promise(function(r){setTimeout(r,600)})
     provider=new ethers.BrowserProvider(window.ethereum)
     signer=await provider.getSigner()
     walletAddress=await signer.getAddress()
     connected=true
     var sh=walletAddress.slice(0,6)+'...'+walletAddress.slice(-4)
-    document.getElementById('headerWallet').innerHTML='<div class="wbadge"><div class="waddr"><div class="wdot"></div>'+sh+'</div><button class="bdiscon" id="disconnectBtn">Disconnect</button></div>'
+    document.getElementById('headerWallet').innerHTML='<div class="wbadge"><div class="waddr"><div class="wdot"></div>'+sh+'</div><button class="bdiscon" id="disconnectBtn" title="Disconnect wallet" aria-label="Disconnect wallet"><svg><use href="#i-power"/></svg></button></div>'
     document.getElementById('disconnectBtn').addEventListener('click',disconnectWallet)
     localStorage.setItem('novadex_wallet_connected','true')
     if(!silent)ss2('statusBox','Connected to Arc Testnet','success')
