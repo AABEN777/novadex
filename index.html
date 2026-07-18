@@ -541,7 +541,7 @@ const SBH={'Content-Type':'application/json','apikey':SBK,'Authorization':'Beare
 
 var provider,signer,walletAddress,connected=false,totalVolume=0,priceChart=null,isDark=true,txFilter='all'
 var arcNetwork=ethers.Network.from(ARC_ID)
-var readProvider=new ethers.JsonRpcProvider(RPC,null,{staticNetwork:arcNetwork})
+var readProvider=new ethers.JsonRpcProvider(RPC,null,{staticNetwork:arcNetwork,batchMaxCount:1})
 
 window.addEventListener('DOMContentLoaded',function(){
   document.getElementById('logoBtn').addEventListener('click',function(){showPage('home')})
