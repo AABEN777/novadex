@@ -541,7 +541,7 @@ const SBH={'Content-Type':'application/json','apikey':SBK,'Authorization':'Beare
 
 var provider,signer,walletAddress,connected=false,totalVolume=0,priceChart=null,isDark=true,txFilter='all'
 var arcNetwork=ethers.Network.from(ARC_ID)
-var readProvider=new ethers.JsonRpcProvider(RPC,arcNetwork,{staticNetwork:arcNetwork})
+var readProvider=new ethers.JsonRpcProvider(RPC,null,{staticNetwork:arcNetwork})
 
 window.addEventListener('DOMContentLoaded',function(){
   document.getElementById('logoBtn').addEventListener('click',function(){showPage('home')})
@@ -729,17 +729,17 @@ async function fetchBals(){
   document.getElementById('balanceOut').textContent=bo+' '+to
 }
 async function getBal(sym){
-  try{var t=TK[sym];if(!t)return'0.00';var c=new ethers.Contract(t.address,E20,provider);var [r,d]=await Promise.all([c.balanceOf(walletAddress),c.decimals()]);return parseFloat(ethers.formatUnits(r,d)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:6})}catch(e){console.log('getBal error for '+sym+':',e);return'0.00'}
+  try{var t=TK[sym];if(!t)return'0.00';var c=new ethers.Contract(t.address,E20,readProvider);var [r,d]=await Promise.all([c.balanceOf(walletAddress),c.decimals()]);return parseFloat(ethers.formatUnits(r,d)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:6})}catch(e){console.log('getBal error for '+sym+':',e);return'0.00'}
 }
 function setMax(){if(!connected)return;var n=parseFloat(document.getElementById('balanceIn').textContent.replace(/,/g,''));if(!isNaN(n)&&n>0){document.getElementById('amountIn').value=n;updateQuote()}}
-async function chkBal(sym,amt){try{var t=TK[sym];if(!t)return true;var c=new ethers.Contract(t.address,E20,provider);var r=await c.balanceOf(walletAddress);var d=await c.decimals();return parseFloat(ethers.formatUnits(r,d))>=amt}catch{return true}}
+async function chkBal(sym,amt){try{var t=TK[sym];if(!t)return true;var c=new ethers.Contract(t.address,E20,readProvider);var r=await c.balanceOf(walletAddress);var d=await c.decimals();return parseFloat(ethers.formatUnits(r,d))>=amt}catch{return true}}
 
 async function updateQuote(){
   var amt=parseFloat(document.getElementById('amountIn').value)
   var ti=document.getElementById('tokenIn').value,to=document.getElementById('tokenOut').value
   if(!amt||amt<=0){document.getElementById('amountOut').value='';document.getElementById('rateDisplay').textContent='—';return}
   if(connected&&provider){
-    try{var rc=new ethers.Contract(RS,RSA,provider);var ir=ethers.parseUnits(amt.toString(),TK[ti].decimals);var or=await rc.getAmountOut(TK[ti].address,TK[to].address,ir);var out=parseFloat(ethers.formatUnits(or,TK[to].decimals));document.getElementById('amountOut').value=out.toFixed(6);document.getElementById('rateDisplay').textContent='1 '+ti+' = '+(out/amt).toFixed(6)+' '+to;return}catch(e){console.log('quote:',e)}
+    try{var rc=new ethers.Contract(RS,RSA,readProvider);var ir=ethers.parseUnits(amt.toString(),TK[ti].decimals);var or=await rc.getAmountOut(TK[ti].address,TK[to].address,ir);var out=parseFloat(ethers.formatUnits(or,TK[to].decimals));document.getElementById('amountOut').value=out.toFixed(6);document.getElementById('rateDisplay').textContent='1 '+ti+' = '+(out/amt).toFixed(6)+' '+to;return}catch(e){console.log('quote:',e)}
   }
   var rate=SR[ti+'-'+to]||1;document.getElementById('amountOut').value=(amt*rate).toFixed(6);document.getElementById('rateDisplay').textContent='1 '+ti+' = '+rate+' '+to
 }
@@ -844,7 +844,7 @@ async function loadPoolShare(){
   if(!connected){c.innerHTML='<div class="wrq"><svg><use href="#i-lock"/></svg><div class="wrq-t">Wallet required</div><div class="wrq-s">Connect to view positions</div></div>';return}
   c.innerHTML='<div class="empty">Loading...</div>'
   try{
-    var fc=new ethers.Contract(FC,FCA,provider)
+    var fc=new ethers.Contract(FC,FCA,readProvider)
     var pairs=[{n:'USDC/EURC',t0:'USDC',t1:'EURC'},{n:'USDC/cirBTC',t0:'USDC',t1:'cirBTC'},{n:'EURC/cirBTC',t0:'EURC',t1:'cirBTC'}]
     var ltxs=loadTxs().filter(function(t){return t.type==='liquidity'&&t.action==='add'})
     var html=''
@@ -853,7 +853,7 @@ async function loadPoolShare(){
       try{
         var pa=await fc.getPair(TK[p.t0].address,TK[p.t1].address)
         if(!pa||pa==='0x0000000000000000000000000000000000000000')continue
-        var pc=new ethers.Contract(pa,PRA,provider)
+        var pc=new ethers.Contract(pa,PRA,readProvider)
         var [res,ts]=await Promise.all([pc.getReserves(),pc.totalSupply()])
         var r0=parseFloat(ethers.formatUnits(res[0],TK[p.t0].decimals)).toFixed(4)
         var r1=parseFloat(ethers.formatUnits(res[1],TK[p.t1].decimals)).toFixed(6)
