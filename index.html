@@ -488,6 +488,7 @@
     <button class="wopt" id="cbBtn"><div class="woico" style="background:#1652f018">🔵</div><div><div class="won">Coinbase Wallet</div><div class="wod">Browser extension</div></div><div class="woarr">›</div></button>
     <button class="wopt" id="otherBtn"><div class="woico" style="background:var(--el)">🔗</div><div><div class="won">Other EVM wallet</div><div class="wod">Any injected wallet</div></div><div class="woarr">›</div></button>
     <button class="mcanc" id="closeWalletBtn">Cancel</button>
+    <div class="sbox" id="walletModalStatus"></div>
   </div>
 </div>
 
@@ -585,7 +586,7 @@ window.addEventListener('DOMContentLoaded',function(){
   document.getElementById('sideLending').addEventListener('click',function(){showPage('lending');closeMenu()})
   document.getElementById('sideLeaderboard').addEventListener('click',function(){showPage('leaderboard');closeMenu()})
   document.getElementById('sideHistory').addEventListener('click',function(){showPage('history');closeMenu()})
-  document.getElementById('connectWalletBtn').addEventListener('click',function(){openMod('walletModal')})
+  document.getElementById('connectWalletBtn').addEventListener('click',function(){var wmb=document.getElementById('walletModalStatus');if(wmb){wmb.textContent='';wmb.className='sbox'};openMod('walletModal')})
   document.getElementById('closeWalletBtn').addEventListener('click',function(){closeMod('walletModal')})
   document.getElementById('walletModal').addEventListener('click',function(e){if(e.target.id==='walletModal')closeMod('walletModal')})
   var walletBtnMap={mmBtn:'metamask',rabbyBtn:'rabby',zerionBtn:'zerion',cbBtn:'coinbase',otherBtn:'other'}
@@ -721,8 +722,6 @@ function buildChart(pair){
 }
 
 async function connectWallet(silent,walletName){
-  if(!silent)closeMod('walletModal')
-
   var targetProvider=null
 
   if(walletName&&walletName!=='other'){
@@ -730,7 +729,11 @@ async function connectWallet(silent,walletName){
     if(match){
       targetProvider=match.provider
     }else{
-      if(!silent)ss2('statusBox',walletName.charAt(0).toUpperCase()+walletName.slice(1)+' not detected. Please install it or choose a different wallet.','error')
+      if(!silent){
+        var label=walletName.charAt(0).toUpperCase()+walletName.slice(1)
+        var wmb=document.getElementById('walletModalStatus')
+        if(wmb){wmb.textContent=label+' not detected in your browser. Please install the '+label+' extension, or choose a different wallet.';wmb.className='sbox error'}
+      }
       return
     }
   }else{
@@ -744,8 +747,16 @@ async function connectWallet(silent,walletName){
   }
 
   if(!targetProvider){
-    if(!silent)ss2('statusBox','No EVM wallet detected. Install MetaMask, Rabby, or another wallet.','error')
+    if(!silent){
+      var wmb2=document.getElementById('walletModalStatus')
+      if(wmb2){wmb2.textContent='No EVM wallet detected. Install MetaMask, Rabby, or another wallet.';wmb2.className='sbox error'}
+    }
     return
+  }
+
+  if(!silent){
+    var wmb3=document.getElementById('walletModalStatus')
+    if(wmb3){wmb3.textContent='Connecting... ⏳';wmb3.className='sbox pending'}
   }
 
   try{
@@ -774,11 +785,18 @@ async function connectWallet(silent,walletName){
     document.getElementById('disconnectBtn').addEventListener('click',disconnectWallet)
     localStorage.setItem('novadex_wallet_connected','true')
     if(walletName&&walletName!=='other')localStorage.setItem('novadex_wallet_name',walletName)
-    if(!silent)ss2('statusBox','✓ Wallet connected — '+sh,'success')
+    if(!silent){closeMod('walletModal');ss2('statusBox','✓ Wallet connected — '+sh,'success')}
     fetchBals();updateQuote();renderHistory()
     refreshCurrentPageData()
     if(document.getElementById('leaderboardPage').classList.contains('active'))renderLeaderboard()
-  }catch(err){console.log(err);if(!silent)ss2('statusBox','Connection failed: '+(err.message||String(err)),'error')}
+  }catch(err){
+    console.log(err)
+    if(!silent){
+      var msg=err.message||String(err)
+      var wmb4=document.getElementById('walletModalStatus')
+      if(wmb4){wmb4.textContent='Connection failed: '+msg;wmb4.className='sbox error'}
+    }
+  }
 }
 
 function disconnectWallet(){
@@ -786,7 +804,7 @@ function disconnectWallet(){
   localStorage.removeItem('novadex_wallet_connected')
   localStorage.removeItem('novadex_wallet_name')
   document.getElementById('headerWallet').innerHTML='<button class="btnc" id="connectWalletBtn">Connect Wallet</button>'
-  document.getElementById('connectWalletBtn').addEventListener('click',function(){openMod('walletModal')})
+  document.getElementById('connectWalletBtn').addEventListener('click',function(){var wmb=document.getElementById('walletModalStatus');if(wmb){wmb.textContent='';wmb.className='sbox'};openMod('walletModal')})
   document.getElementById('balanceIn').textContent='—'
   document.getElementById('balanceOut').textContent='—'
   ss2('statusBox','Wallet disconnected','error')
@@ -831,6 +849,27 @@ async function initiateSwap(){
   openMod('confirmModal')
 }
 
+async function sendWithRetry(sendFn,maxRetries){
+  maxRetries=maxRetries||2
+  var lastErr
+  for(var attempt=0;attempt<=maxRetries;attempt++){
+    try{
+      return await sendFn()
+    }catch(e){
+      lastErr=e
+      var code=e&&e.info&&e.info.error&&e.info.error.code
+      var isNetworkError=code===-32011||(e.message&&e.message.indexOf('request limit')!==-1)||(e.message&&e.message.indexOf('network error')!==-1)
+      if(isNetworkError&&attempt<maxRetries){
+        console.log('Transient RPC error, retrying ('+(attempt+1)+'/'+maxRetries+')...',e)
+        await new Promise(function(r){setTimeout(r,1200*(attempt+1))})
+        continue
+      }
+      throw e
+    }
+  }
+  throw lastErr
+}
+
 async function confirmSwap(){
   var btn=document.getElementById('confirmSwapBtn');btn.disabled=true;btn.textContent='Processing...'
   closeMod('confirmModal')
@@ -849,13 +888,16 @@ async function confirmSwap(){
     var router=new ethers.Contract(RS,RSA,signer),mc=new ethers.Contract(MC,MMA,signer)
     var mid=ethers.encodeBytes32String('NovaDEXSwap'),md=ethers.toUtf8Bytes('NovaDEX:'+ti+'->'+to)
     var stx
-    try{var sd=router.interface.encodeFunctionData('swap',[ia,oa,ir,mo,walletAddress]);stx=await mc.memo(RS,sd,mid,md,{gasLimit:600000n,gasPrice:gp})}
+    try{
+      var sd=router.interface.encodeFunctionData('swap',[ia,oa,ir,mo,walletAddress])
+      stx=await sendWithRetry(function(){return mc.memo(RS,sd,mid,md,{gasLimit:600000n,gasPrice:gp})})
+    }
     catch(fe){
       if(to==='cirBTC'||ti==='cirBTC'){
         var ot=new ethers.Contract(oa,E20,signer);var oal=await ot.allowance(walletAddress,RS)
         if(oal<mo)await ot.approve(RS,mo,{gasLimit:100000n,gasPrice:gp})
         var sda=router.interface.encodeFunctionData('swap',[oa,ia,mo,ir,walletAddress])
-        stx=await mc.memo(RS,sda,mid,md,{gasLimit:600000n,gasPrice:gp})
+        stx=await sendWithRetry(function(){return mc.memo(RS,sda,mid,md,{gasLimit:600000n,gasPrice:gp})})
       }else{throw fe}
     }
     ss2('statusBox','Confirming on-chain... ⏳','pending')
@@ -871,7 +913,12 @@ async function confirmSwap(){
     var txs=loadTxs();var idx=txs.findIndex(function(t){return t.status==='pending'&&t.type==='swap'&&t.tokenIn===ti&&t.tokenOut===to})
     if(idx>-1){txs[idx].status='failed'}
     localStorage.setItem(TXK,JSON.stringify(txs));renderHistory()
-    ss2('statusBox','❌ '+(err?.reason||err?.shortMessage||err?.message||'Failed'),'error')
+    var errCode=err&&err.info&&err.info.error&&err.info.error.code
+    if(errCode===-32011){
+      ss2('statusBox','❌ Your wallet had trouble broadcasting the transaction (network error). Please try again.','error')
+    }else{
+      ss2('statusBox','❌ '+(err?.reason||err?.shortMessage||err?.message||'Failed'),'error')
+    }
   }finally{btn.disabled=false;btn.textContent='Confirm'}
 }
 
