@@ -530,7 +530,7 @@ const FC='0xd7EB001b35373353f0d52E1AEf9a597051034A1F'
 const LC='0xe150cfB9E2F702A13F5B5cC68A23681d34b7b384'
 const MC='0x5294E9927c3306DcBaDb03fe70b92e01cCede505'
 const TK={USDC:{address:'0x3600000000000000000000000000000000000000',decimals:6},EURC:{address:'0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a',decimals:6},cirBTC:{address:'0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF',decimals:8}}
-const ARC_ID=5042002,ARC_HEX='0x4CA052',RPC='https://rpc.testnet.arc.network',EXP='https://testnet.arcscan.app'
+const ARC_ID=5042002,ARC_HEX='0x4CEF52',RPC='https://rpc.testnet.arc.network',EXP='https://testnet.arcscan.app'
 const E20=['function approve(address,uint256) returns(bool)','function allowance(address,address) view returns(uint256)','function balanceOf(address) view returns(uint256)','function decimals() view returns(uint8)']
 const RSA=['function swap(address,address,uint256,uint256,address) returns(uint256)','function getAmountOut(address,address,uint256) view returns(uint256)']
 const RLA=['function addLiquidity(address,address,uint256,uint256) returns(address)']
@@ -545,6 +545,27 @@ const SBK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6
 const SBH={'Content-Type':'application/json','apikey':SBK,'Authorization':'Bearer '+SBK}
 
 var provider,signer,walletAddress,connected=false,totalVolume=0,priceChart=null,isDark=true,txFilter='all'
+var lbEntries=[],lbVisibleCount=25
+var discoveredWallets=[]
+
+// EIP-6963: listen for wallet providers announcing themselves.
+// This solves the "wrong wallet connects" bug — instead of blindly grabbing
+// window.ethereum (which is just whichever wallet loaded last), we build a
+// real list of installed wallets and match the user's actual selection to it.
+window.addEventListener('eip6963:announceProvider',function(event){
+  var detail=event.detail
+  if(!detail||!detail.info||!detail.provider)return
+  var exists=discoveredWallets.some(function(w){return w.info.uuid===detail.info.uuid})
+  if(!exists)discoveredWallets.push(detail)
+})
+window.dispatchEvent(new Event('eip6963:requestProvider'))
+
+function findWalletByName(nameMatch){
+  var lower=nameMatch.toLowerCase()
+  return discoveredWallets.find(function(w){
+    return w.info.name&&w.info.name.toLowerCase().indexOf(lower)!==-1
+  })
+}
 var arcNetwork=ethers.Network.from(ARC_ID)
 var readProvider=new ethers.JsonRpcProvider(RPC,null,{staticNetwork:arcNetwork,batchMaxCount:1})
 
@@ -567,7 +588,10 @@ window.addEventListener('DOMContentLoaded',function(){
   document.getElementById('connectWalletBtn').addEventListener('click',function(){openMod('walletModal')})
   document.getElementById('closeWalletBtn').addEventListener('click',function(){closeMod('walletModal')})
   document.getElementById('walletModal').addEventListener('click',function(e){if(e.target.id==='walletModal')closeMod('walletModal')})
-  ;['mmBtn','rabbyBtn','zerionBtn','cbBtn','otherBtn'].forEach(function(id){document.getElementById(id).addEventListener('click',connectWallet)})
+  var walletBtnMap={mmBtn:'metamask',rabbyBtn:'rabby',zerionBtn:'zerion',cbBtn:'coinbase',otherBtn:'other'}
+  Object.keys(walletBtnMap).forEach(function(id){
+    document.getElementById(id).addEventListener('click',function(){connectWallet(false,walletBtnMap[id])})
+  })
   document.getElementById('cancelSwapBtn').addEventListener('click',function(){closeMod('confirmModal')})
   document.getElementById('confirmSwapBtn').addEventListener('click',confirmSwap)
   document.getElementById('confirmModal').addEventListener('click',function(e){if(e.target.id==='confirmModal')closeMod('confirmModal')})
@@ -608,7 +632,12 @@ window.addEventListener('DOMContentLoaded',function(){
   if(vp.indexOf(ip)===-1)ip='home'
   showPage(ip,true)
   try{history.replaceState({page:ip},'',ip==='home'?window.location.pathname:'#'+ip)}catch(e){}
-  if(localStorage.getItem('novadex_wallet_connected')==='true'&&window.ethereum)connectWallet(true)
+  if(localStorage.getItem('novadex_wallet_connected')==='true'){
+    setTimeout(function(){
+      var savedWallet=localStorage.getItem('novadex_wallet_name')
+      connectWallet(true,savedWallet||'other')
+    },300)
+  }
 })
 
 function toggleMenu(){document.getElementById('hamburgerBtn').classList.toggle('open');document.getElementById('sideMenu').classList.toggle('open');document.getElementById('sideOverlay').classList.toggle('open')}
@@ -691,19 +720,44 @@ function buildChart(pair){
   priceChart=new Chart(ctx,{type:'line',data:{labels:labels,datasets:[{data:data,borderColor:ac,backgroundColor:'rgba(79,110,247,0.06)',borderWidth:1.5,pointRadius:2,pointBackgroundColor:ac,fill:true,tension:0.4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10,family:'Inter'}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10,family:'Inter'}}}}}})
 }
 
-async function connectWallet(silent){
+async function connectWallet(silent,walletName){
   if(!silent)closeMod('walletModal')
-  if(!window.ethereum){if(!silent)ss2('statusBox','No EVM wallet detected. Install MetaMask or Rabby.','error');return}
+
+  var targetProvider=null
+
+  if(walletName&&walletName!=='other'){
+    var match=findWalletByName(walletName)
+    if(match){
+      targetProvider=match.provider
+    }else{
+      if(!silent)ss2('statusBox',walletName.charAt(0).toUpperCase()+walletName.slice(1)+' not detected. Please install it or choose a different wallet.','error')
+      return
+    }
+  }else{
+    // "Other EVM wallet" or silent reconnect: use whatever is discovered first via EIP-6963,
+    // falling back to legacy window.ethereum only if no EIP-6963 wallets announced themselves
+    if(discoveredWallets.length>0){
+      targetProvider=discoveredWallets[0].provider
+    }else if(window.ethereum){
+      targetProvider=window.ethereum
+    }
+  }
+
+  if(!targetProvider){
+    if(!silent)ss2('statusBox','No EVM wallet detected. Install MetaMask, Rabby, or another wallet.','error')
+    return
+  }
+
   try{
-    await window.ethereum.request({method:'eth_requestAccounts'})
+    await targetProvider.request({method:'eth_requestAccounts'})
     var currentChainId=null
-    try{currentChainId=await window.ethereum.request({method:'eth_chainId'})}catch(ce){console.log('chainId check:',ce)}
+    try{currentChainId=await targetProvider.request({method:'eth_chainId'})}catch(ce){console.log('chainId check:',ce)}
     if(currentChainId!==ARC_HEX){
       try{
-        await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:ARC_HEX}]})
+        await targetProvider.request({method:'wallet_switchEthereumChain',params:[{chainId:ARC_HEX}]})
       }catch(se){
         if(se.code===4902){
-          try{await window.ethereum.request({method:'wallet_addEthereumChain',params:[{chainId:ARC_HEX,chainName:'Arc Testnet',nativeCurrency:{name:'USDC',symbol:'USDC',decimals:6},rpcUrls:[RPC],blockExplorerUrls:[EXP]}]})}
+          try{await targetProvider.request({method:'wallet_addEthereumChain',params:[{chainId:ARC_HEX,chainName:'Arc Testnet',nativeCurrency:{name:'USDC',symbol:'USDC',decimals:6},rpcUrls:[RPC],blockExplorerUrls:[EXP]}]})}
           catch(ae){console.log('add chain:',ae)}
         }else{
           console.log('switch chain (non-fatal, chain likely already active):',se)
@@ -711,7 +765,7 @@ async function connectWallet(silent){
       }
     }
     await new Promise(function(r){setTimeout(r,600)})
-    provider=new ethers.BrowserProvider(window.ethereum)
+    provider=new ethers.BrowserProvider(targetProvider)
     signer=await provider.getSigner()
     walletAddress=await signer.getAddress()
     connected=true
@@ -719,7 +773,8 @@ async function connectWallet(silent){
     document.getElementById('headerWallet').innerHTML='<div class="wbadge"><div class="waddr"><div class="wdot"></div>'+sh+'</div><button class="bdiscon" id="disconnectBtn" title="Disconnect wallet" aria-label="Disconnect wallet"><svg><use href="#i-power"/></svg></button></div>'
     document.getElementById('disconnectBtn').addEventListener('click',disconnectWallet)
     localStorage.setItem('novadex_wallet_connected','true')
-    if(!silent)ss2('statusBox','Connected to Arc Testnet','success')
+    if(walletName&&walletName!=='other')localStorage.setItem('novadex_wallet_name',walletName)
+    if(!silent)ss2('statusBox','✓ Wallet connected — '+sh,'success')
     fetchBals();updateQuote();renderHistory()
     refreshCurrentPageData()
     if(document.getElementById('leaderboardPage').classList.contains('active'))renderLeaderboard()
@@ -729,6 +784,7 @@ async function connectWallet(silent){
 function disconnectWallet(){
   connected=false;walletAddress=null;provider=null;signer=null
   localStorage.removeItem('novadex_wallet_connected')
+  localStorage.removeItem('novadex_wallet_name')
   document.getElementById('headerWallet').innerHTML='<button class="btnc" id="connectWalletBtn">Connect Wallet</button>'
   document.getElementById('connectWalletBtn').addEventListener('click',function(){openMod('walletModal')})
   document.getElementById('balanceIn').textContent='—'
@@ -1058,24 +1114,38 @@ async function lbLoadAll(){
 async function renderLeaderboard(){
   var le=document.getElementById('lbList'),yc=document.getElementById('lbYouCard')
   le.innerHTML='<div class="empty">Loading...</div>'
-  var entries=await lbLoadAll()
-  if(entries.length===0){le.innerHTML='<div class="empty">No activity yet. Be the first to swap!</div>';yc.style.display='none';return}
-  var top=entries.slice(0,25)
-  le.innerHTML='<div class="lbth"><span style="min-width:32px">#</span><span style="flex:1">Wallet</span><span>Score</span></div>'
-    +top.map(function(e,i){
-      var rk=i+1,rc=rk===1?'gold':rk===2?'silver':rk===3?'bronze':'other'
-      var sym=rk===1?'🥇':rk===2?'🥈':rk===3?'🥉':'#'+rk
-      var iy=connected&&walletAddress&&e.address.toLowerCase()===walletAddress.toLowerCase()
-      var sh=e.address.slice(0,6)+'...'+e.address.slice(-4)
-      return'<div class="lbr'+(iy?' you':'')+'"><div class="lbrk '+rc+'">'+sym+'</div><div class="lbaddr">'+sh+(iy?' (You)':'')+'</div><div class="lbst"><div class="lbsc">'+e.score.toLocaleString(undefined,{maximumFractionDigits:2})+'</div><div class="lbbd">Swap '+e.swapVolume.toFixed(2)+' · Liq '+e.liqVolume.toFixed(2)+'</div></div></div>'
-    }).join('')
+  lbEntries=await lbLoadAll()
+  lbVisibleCount=25
+  if(lbEntries.length===0){le.innerHTML='<div class="empty">No activity yet. Be the first to swap!</div>';yc.style.display='none';return}
+  renderLeaderboardRows()
   if(connected&&walletAddress){
-    var yi=entries.findIndex(function(e){return e.address.toLowerCase()===walletAddress.toLowerCase()})
+    var yi=lbEntries.findIndex(function(e){return e.address.toLowerCase()===walletAddress.toLowerCase()})
     yc.style.display='block'
     document.getElementById('lbYouRank').textContent=yi>-1?'#'+(yi+1):'Unranked'
     document.getElementById('lbYouAddr').textContent=walletAddress.slice(0,6)+'...'+walletAddress.slice(-4)
-    document.getElementById('lbYouScore').textContent=yi>-1?entries[yi].score.toLocaleString(undefined,{maximumFractionDigits:2}):'0.00'
+    document.getElementById('lbYouScore').textContent=yi>-1?lbEntries[yi].score.toLocaleString(undefined,{maximumFractionDigits:2}):'0.00'
   }else{yc.style.display='none'}
+}
+function renderLeaderboardRows(){
+  var le=document.getElementById('lbList')
+  var top=lbEntries.slice(0,lbVisibleCount)
+  var rowsHtml=top.map(function(e,i){
+    var rk=i+1,rc=rk===1?'gold':rk===2?'silver':rk===3?'bronze':'other'
+    var sym=rk===1?'🥇':rk===2?'🥈':rk===3?'🥉':'#'+rk
+    var iy=connected&&walletAddress&&e.address.toLowerCase()===walletAddress.toLowerCase()
+    var sh=e.address.slice(0,6)+'...'+e.address.slice(-4)
+    return'<div class="lbr'+(iy?' you':'')+'"><div class="lbrk '+rc+'">'+sym+'</div><div class="lbaddr">'+sh+(iy?' (You)':'')+'</div><div class="lbst"><div class="lbsc">'+e.score.toLocaleString(undefined,{maximumFractionDigits:2})+'</div><div class="lbbd">Swap '+e.swapVolume.toFixed(2)+' · Liq '+e.liqVolume.toFixed(2)+'</div></div></div>'
+  }).join('')
+  le.innerHTML='<div class="lbth"><span style="min-width:32px">#</span><span style="flex:1">Wallet</span><span>Score</span></div>'+rowsHtml
+  var remaining=lbEntries.length-lbVisibleCount
+  if(remaining>0){
+    var loadMoreHtml='<div style="padding:14px 16px;text-align:center;border-top:1px solid var(--bd)"><button class="btng" id="lbLoadMoreBtn" style="width:auto;padding:0 20px">Load more ('+remaining+' remaining)</button></div>'
+    le.insertAdjacentHTML('beforeend',loadMoreHtml)
+    document.getElementById('lbLoadMoreBtn').addEventListener('click',function(){
+      lbVisibleCount+=25
+      renderLeaderboardRows()
+    })
+  }
 }
 function shareRank(){var r=document.getElementById('lbYouRank').textContent||'Unranked',s=document.getElementById('lbYouScore').textContent||'0';window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent('I\'m ranked '+r+' on @NovaonArc leaderboard with a score of '+s+' on Arc Testnet 🏆'),'_blank')}
 
