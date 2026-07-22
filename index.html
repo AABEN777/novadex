@@ -624,7 +624,14 @@ window.addEventListener('DOMContentLoaded',function(){
   document.getElementById('lendRepayBtn').addEventListener('click',repayLoan)
   document.getElementById('lendBorrowToken').addEventListener('change',loadPoolBal)
   document.getElementById('lbShareBtn').addEventListener('click',shareRank)
-  document.getElementById('txClearBtn').addEventListener('click',function(){if(!confirm('Clear all history?'))return;localStorage.removeItem(TXK);renderHistory()})
+  document.getElementById('txClearBtn').addEventListener('click',async function(){
+    if(!connected||!walletAddress){ss2('statusBox','Connect your wallet first','error');return}
+    if(!confirm('Clear all your transaction history? This cannot be undone.'))return
+    try{
+      await fetch(SBU+'/rest/v1/transaction_history?wallet_address=eq.'+walletAddress.toLowerCase(),{method:'DELETE',headers:SBH})
+      renderHistory()
+    }catch(e){console.log('clear history error:',e)}
+  })
   document.querySelectorAll('.ctab').forEach(function(tab){tab.addEventListener('click',function(){document.querySelectorAll('.ctab').forEach(function(t){t.classList.remove('active')});tab.classList.add('active');buildChart(tab.dataset.pair)})})
   window.addEventListener('popstate',function(e){var p=(e.state&&e.state.page)||'home';showPage(p,true)})
   checkNet();buildChart('USDC-EURC');renderHistory()
@@ -850,18 +857,20 @@ async function initiateSwap(){
 }
 
 async function sendWithRetry(sendFn,maxRetries){
-  maxRetries=maxRetries||2
+  maxRetries=maxRetries||3
   var lastErr
   for(var attempt=0;attempt<=maxRetries;attempt++){
     try{
       return await sendFn()
     }catch(e){
       lastErr=e
-      var code=e&&e.info&&e.info.error&&e.info.error.code
-      var isNetworkError=code===-32011||(e.message&&e.message.indexOf('request limit')!==-1)||(e.message&&e.message.indexOf('network error')!==-1)
+      var fullErrText=''
+      try{fullErrText=JSON.stringify(e)}catch(je){fullErrText=String(e)}
+      fullErrText+=' '+(e&&e.message?e.message:'')+' '+(e&&e.shortMessage?e.shortMessage:'')
+      var isNetworkError=fullErrText.indexOf('-32011')!==-1||fullErrText.toLowerCase().indexOf('request limit')!==-1||fullErrText.toLowerCase().indexOf('coalesce')!==-1||fullErrText.toLowerCase().indexOf('network error')!==-1
       if(isNetworkError&&attempt<maxRetries){
         console.log('Transient RPC error, retrying ('+(attempt+1)+'/'+maxRetries+')...',e)
-        await new Promise(function(r){setTimeout(r,1200*(attempt+1))})
+        await new Promise(function(r){setTimeout(r,1500*(attempt+1))})
         continue
       }
       throw e
@@ -875,7 +884,7 @@ async function confirmSwap(){
   closeMod('confirmModal')
   var ti=document.getElementById('tokenIn').value,to=document.getElementById('tokenOut').value
   var ai=parseFloat(document.getElementById('amountIn').value),ao=parseFloat(document.getElementById('amountOut').value)
-  saveTx({type:'swap',hash:null,tokenIn:ti,tokenOut:to,amountIn:ai,amountOut:ao,timestamp:Date.now(),status:'pending'})
+  var txRowId=await saveTx({type:'swap',hash:null,tokenIn:ti,tokenOut:to,amountIn:ai,amountOut:ao,status:'pending'})
   try{
     var net=await provider.getNetwork();if(Number(net.chainId.toString())!==ARC_ID){ss2('statusBox','Wrong network','error');btn.disabled=false;btn.textContent='Confirm';return}
     var ia=TK[ti].address,oa=TK[to].address,id=TK[ti].decimals,od=TK[to].decimals
@@ -902,20 +911,18 @@ async function confirmSwap(){
     }
     ss2('statusBox','Confirming on-chain... ⏳','pending')
     var rc=await stx.wait()
-    var txs=loadTxs();var idx=txs.findIndex(function(t){return t.status==='pending'&&t.type==='swap'&&t.tokenIn===ti&&t.tokenOut===to})
-    if(idx>-1){txs[idx].hash=rc.hash;txs[idx].status='success'}
-    localStorage.setItem(TXK,JSON.stringify(txs))
+    await updateTxStatus(txRowId,{hash:rc.hash,status:'success'})
     totalVolume+=ai;document.getElementById('statVol').textContent='$'+totalVolume.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})
     ss2('statusBox','Swapped '+ai+' '+ti+' → '+ao+' '+to+' | '+rc.hash.slice(0,10)+'...','success')
     document.getElementById('amountIn').value='';document.getElementById('amountOut').value=''
     fetchBals();renderHistory();lbRecord(walletAddress,ai,0)
   }catch(err){
-    var txs=loadTxs();var idx=txs.findIndex(function(t){return t.status==='pending'&&t.type==='swap'&&t.tokenIn===ti&&t.tokenOut===to})
-    if(idx>-1){txs[idx].status='failed'}
-    localStorage.setItem(TXK,JSON.stringify(txs));renderHistory()
-    var errCode=err&&err.info&&err.info.error&&err.info.error.code
-    if(errCode===-32011){
-      ss2('statusBox','❌ Your wallet had trouble broadcasting the transaction (network error). Please try again.','error')
+    await updateTxStatus(txRowId,{status:'failed'})
+    renderHistory()
+    var errFullText='';try{errFullText=JSON.stringify(err)}catch(je){errFullText=String(err)}
+    errFullText+=' '+(err&&err.message?err.message:'')
+    if(errFullText.indexOf('-32011')!==-1||errFullText.toLowerCase().indexOf('request limit')!==-1||errFullText.toLowerCase().indexOf('coalesce')!==-1){
+      ss2('statusBox','❌ Your wallet had trouble broadcasting the transaction after several attempts (network error). Please wait a moment and try again.','error')
     }else{
       ss2('statusBox','❌ '+(err?.reason||err?.shortMessage||err?.message||'Failed'),'error')
     }
@@ -951,7 +958,7 @@ async function addLiquidity(){
     var router=new ethers.Contract(RL,RLA,signer)
     var tx=await router.addLiquidity(t0.address,t1.address,r0,r1,{gasLimit:500000n,gasPrice:gp})
     var rec=await tx.wait()
-    saveTx({type:'liquidity',action:'add',pair:pair,amount0:a0,amount1:a1,token0:pts[0],token1:pts[1],hash:rec.hash,timestamp:Date.now(),status:'success'})
+    await saveTx({type:'liquidity',action:'add',pair:pair,amount0:a0,amount1:a1,token0:pts[0],token1:pts[1],hash:rec.hash,status:'success'})
     ss('liqStatusBox','Liquidity added to '+pair+' | '+rec.hash.slice(0,10)+'...','success')
     document.getElementById('liqAmount0').value='';document.getElementById('liqAmount1').value=''
     fetchLiqBals();renderHistory();lbRecord(walletAddress,0,a0+a1)
@@ -965,7 +972,7 @@ async function loadPoolShare(){
   try{
     var fc=new ethers.Contract(FC,FCA,readProvider)
     var pairs=[{n:'USDC/EURC',t0:'USDC',t1:'EURC'},{n:'USDC/cirBTC',t0:'USDC',t1:'cirBTC'},{n:'EURC/cirBTC',t0:'EURC',t1:'cirBTC'}]
-    var ltxs=loadTxs().filter(function(t){return t.type==='liquidity'&&t.action==='add'})
+    var ltxs=(await loadTxs()).filter(function(t){return t.type==='liquidity'&&t.action==='add'})
     var html=''
     for(var i=0;i<pairs.length;i++){
       var p=pairs[i]
@@ -1074,7 +1081,7 @@ async function depositCollateral(){
     var txn=await lc.depositCollateral(raw,{gasLimit:200000n,gasPrice:gp})
     var rec=await txn.wait()
     ss('lendDepositStatus','Deposited '+amt+' USDC as collateral ✓','success')
-    saveTx({type:'lending',action:'deposit',token:'USDC',amount:amt,hash:rec.hash,timestamp:Date.now(),status:'success'})
+    await saveTx({type:'lending',action:'deposit',token:'USDC',amount:amt,hash:rec.hash,status:'success'})
     document.getElementById('lendDepositAmt').value='';loadLendBal();renderHistory()
   }catch(err){ss('lendDepositStatus','❌ '+(err?.reason||err?.shortMessage||err?.message||'Failed'),'error')}
 }
@@ -1090,7 +1097,7 @@ async function borrowTokens(){
     var btx=await lc.borrow(TK[tok].address,raw,{gasLimit:300000n,gasPrice:gp})
     var brec=await btx.wait()
     ss('lendBorrowStatus','Borrowed '+amt+' '+tok+' ✓','success')
-    saveTx({type:'lending',action:'borrow',token:tok,amount:amt,hash:brec.hash,timestamp:Date.now(),status:'success'})
+    await saveTx({type:'lending',action:'borrow',token:tok,amount:amt,hash:brec.hash,status:'success'})
     document.getElementById('lendBorrowAmt').value='';fetchBals();renderHistory()
   }catch(err){ss('lendBorrowStatus','❌ '+(err?.reason||err?.shortMessage||err?.message||'Failed'),'error')}
 }
@@ -1111,7 +1118,7 @@ async function repayLoan(){
     var rtx=await lcs.repayToken(TK[tok].address,{gasLimit:300000n,gasPrice:gp})
     var rrec=await rtx.wait()
     ss('lendRepayStatus',tok+' loan repaid ✓','success')
-    saveTx({type:'lending',action:'repay',token:tok,amount:0,hash:rrec.hash,timestamp:Date.now(),status:'success'})
+    await saveTx({type:'lending',action:'repay',token:tok,amount:0,hash:rrec.hash,status:'success'})
     loadPosition();fetchBals();renderHistory()
   }catch(err){ss('lendRepayStatus','❌ '+(err?.reason||err?.shortMessage||err?.message||'Failed'),'error')}
 }
@@ -1140,7 +1147,7 @@ async function repayAllLoans(){
     var rtx=await lcs.repayAll({gasLimit:500000n,gasPrice:gp})
     var rrec=await rtx.wait()
     ss('lendRepayStatus','All loans repaid. Collateral returned ✓','success')
-    saveTx({type:'lending',action:'repay',token:'ALL',amount:0,hash:rrec.hash,timestamp:Date.now(),status:'success'})
+    await saveTx({type:'lending',action:'repay',token:'ALL',amount:0,hash:rrec.hash,status:'success'})
     loadPosition();fetchBals();renderHistory()
   }catch(err){ss('lendRepayStatus','❌ '+(err?.reason||err?.shortMessage||err?.message||'Failed'),'error')}
 }
@@ -1196,12 +1203,73 @@ function renderLeaderboardRows(){
 }
 function shareRank(){var r=document.getElementById('lbYouRank').textContent||'Unranked',s=document.getElementById('lbYouScore').textContent||'0';window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent('I\'m ranked '+r+' on @NovaonArc leaderboard with a score of '+s+' on Arc Testnet 🏆'),'_blank')}
 
-function loadTxs(){try{return JSON.parse(localStorage.getItem(TXK)||'[]')}catch{return[]}}
-function saveTx(tx){var txs=loadTxs();txs.unshift(tx);if(txs.length>100)txs.splice(100);localStorage.setItem(TXK,JSON.stringify(txs))}
-function renderHistory(){
+async function saveTx(tx){
+  if(!walletAddress)return null
+  try{
+    var row={
+      wallet_address:walletAddress.toLowerCase(),
+      type:tx.type,
+      action:tx.action||null,
+      token_in:tx.tokenIn||null,
+      token_out:tx.tokenOut||null,
+      amount_in:tx.amountIn!=null?tx.amountIn:null,
+      amount_out:tx.amountOut!=null?tx.amountOut:null,
+      pair:tx.pair||null,
+      amount0:tx.amount0!=null?tx.amount0:null,
+      amount1:tx.amount1!=null?tx.amount1:null,
+      token0:tx.token0||null,
+      token1:tx.token1||null,
+      token:tx.token||null,
+      amount:tx.amount!=null?tx.amount:null,
+      tx_hash:tx.hash||null,
+      status:tx.status
+    }
+    var res=await fetch(SBU+'/rest/v1/transaction_history',{
+      method:'POST',
+      headers:Object.assign({},SBH,{'Prefer':'return=representation'}),
+      body:JSON.stringify(row)
+    })
+    var data=await res.json()
+    return (data&&data[0])?data[0].id:null
+  }catch(e){console.log('saveTx error:',e);return null}
+}
+
+async function updateTxStatus(rowId,updates){
+  if(!rowId)return
+  try{
+    var patch={}
+    if(updates.hash!==undefined)patch.tx_hash=updates.hash
+    if(updates.status!==undefined)patch.status=updates.status
+    await fetch(SBU+'/rest/v1/transaction_history?id=eq.'+rowId,{
+      method:'PATCH',
+      headers:SBH,
+      body:JSON.stringify(patch)
+    })
+  }catch(e){console.log('updateTxStatus error:',e)}
+}
+
+async function loadTxs(){
+  if(!walletAddress)return[]
+  try{
+    var res=await fetch(SBU+'/rest/v1/transaction_history?wallet_address=eq.'+walletAddress.toLowerCase()+'&select=*&order=created_at.desc&limit=100',{headers:SBH})
+    var rows=await res.json()
+    if(!Array.isArray(rows))return[]
+    return rows.map(function(r){
+      return{
+        id:r.id,type:r.type,action:r.action,tokenIn:r.token_in,tokenOut:r.token_out,
+        amountIn:r.amount_in,amountOut:r.amount_out,pair:r.pair,
+        amount0:r.amount0,amount1:r.amount1,token0:r.token0,token1:r.token1,
+        token:r.token,amount:r.amount,hash:r.tx_hash,status:r.status,
+        timestamp:new Date(r.created_at).getTime()
+      }
+    })
+  }catch(e){console.log('loadTxs error:',e);return[]}
+}
+async function renderHistory(){
   var c=document.getElementById('historyContent')
   if(!connected){c.innerHTML='<div class="wrq"><svg><use href="#i-lock"/></svg><div class="wrq-t">Wallet required</div><div class="wrq-s">Connect to view your history</div></div>';return}
-  var txs=loadTxs()
+  c.innerHTML='<div class="empty">Loading your history...</div>'
+  var txs=await loadTxs()
   var validFilters=['all','swap','liquidity','lending']
   var fh2='<div class="trow"><button class="tfbtn'+(txFilter==='all'?' active':'')+'" data-f="all">All</button><button class="tfbtn'+(txFilter==='swap'?' active':'')+'" data-f="swap">Swaps</button><button class="tfbtn'+(txFilter==='liquidity'?' active':'')+'" data-f="liquidity">Liquidity</button><button class="tfbtn'+(txFilter==='lending'?' active':'')+'" data-f="lending">Lending</button></div>'
   var ft=txFilter==='all'?txs:txs.filter(function(t){return t.type===txFilter})
