@@ -546,7 +546,6 @@ const SBK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6
 const SBH={'Content-Type':'application/json','apikey':SBK,'Authorization':'Bearer '+SBK}
 
 var provider,signer,walletAddress,connected=false,totalVolume=0,priceChart=null,isDark=true,txFilter='all'
-var lbEntries=[],lbVisibleCount=25
 var discoveredWallets=[]
 
 // EIP-6963: listen for wallet providers announcing themselves.
@@ -1168,38 +1167,24 @@ async function lbLoadAll(){
 async function renderLeaderboard(){
   var le=document.getElementById('lbList'),yc=document.getElementById('lbYouCard')
   le.innerHTML='<div class="empty">Loading...</div>'
-  lbEntries=await lbLoadAll()
-  lbVisibleCount=25
-  if(lbEntries.length===0){le.innerHTML='<div class="empty">No activity yet. Be the first to swap!</div>';yc.style.display='none';return}
-  renderLeaderboardRows()
+  var entries=await lbLoadAll()
+  if(entries.length===0){le.innerHTML='<div class="empty">No activity yet. Be the first to swap!</div>';yc.style.display='none';return}
+  var top=entries.slice(0,25)
+  le.innerHTML='<div class="lbth"><span style="min-width:32px">#</span><span style="flex:1">Wallet</span><span>Score</span></div>'
+    +top.map(function(e,i){
+      var rk=i+1,rc=rk===1?'gold':rk===2?'silver':rk===3?'bronze':'other'
+      var sym=rk===1?'🥇':rk===2?'🥈':rk===3?'🥉':'#'+rk
+      var iy=connected&&walletAddress&&e.address.toLowerCase()===walletAddress.toLowerCase()
+      var sh=e.address.slice(0,6)+'...'+e.address.slice(-4)
+      return'<div class="lbr'+(iy?' you':'')+'"><div class="lbrk '+rc+'">'+sym+'</div><div class="lbaddr">'+sh+(iy?' (You)':'')+'</div><div class="lbst"><div class="lbsc">'+e.score.toLocaleString(undefined,{maximumFractionDigits:2})+'</div><div class="lbbd">Swap '+e.swapVolume.toFixed(2)+' · Liq '+e.liqVolume.toFixed(2)+'</div></div></div>'
+    }).join('')
   if(connected&&walletAddress){
-    var yi=lbEntries.findIndex(function(e){return e.address.toLowerCase()===walletAddress.toLowerCase()})
+    var yi=entries.findIndex(function(e){return e.address.toLowerCase()===walletAddress.toLowerCase()})
     yc.style.display='block'
     document.getElementById('lbYouRank').textContent=yi>-1?'#'+(yi+1):'Unranked'
     document.getElementById('lbYouAddr').textContent=walletAddress.slice(0,6)+'...'+walletAddress.slice(-4)
-    document.getElementById('lbYouScore').textContent=yi>-1?lbEntries[yi].score.toLocaleString(undefined,{maximumFractionDigits:2}):'0.00'
+    document.getElementById('lbYouScore').textContent=yi>-1?entries[yi].score.toLocaleString(undefined,{maximumFractionDigits:2}):'0.00'
   }else{yc.style.display='none'}
-}
-function renderLeaderboardRows(){
-  var le=document.getElementById('lbList')
-  var top=lbEntries.slice(0,lbVisibleCount)
-  var rowsHtml=top.map(function(e,i){
-    var rk=i+1,rc=rk===1?'gold':rk===2?'silver':rk===3?'bronze':'other'
-    var sym=rk===1?'🥇':rk===2?'🥈':rk===3?'🥉':'#'+rk
-    var iy=connected&&walletAddress&&e.address.toLowerCase()===walletAddress.toLowerCase()
-    var sh=e.address.slice(0,6)+'...'+e.address.slice(-4)
-    return'<div class="lbr'+(iy?' you':'')+'"><div class="lbrk '+rc+'">'+sym+'</div><div class="lbaddr">'+sh+(iy?' (You)':'')+'</div><div class="lbst"><div class="lbsc">'+e.score.toLocaleString(undefined,{maximumFractionDigits:2})+'</div><div class="lbbd">Swap '+e.swapVolume.toFixed(2)+' · Liq '+e.liqVolume.toFixed(2)+'</div></div></div>'
-  }).join('')
-  le.innerHTML='<div class="lbth"><span style="min-width:32px">#</span><span style="flex:1">Wallet</span><span>Score</span></div>'+rowsHtml
-  var remaining=lbEntries.length-lbVisibleCount
-  if(remaining>0){
-    var loadMoreHtml='<div style="padding:14px 16px;text-align:center;border-top:1px solid var(--bd)"><button class="btng" id="lbLoadMoreBtn" style="width:auto;padding:0 20px">Load more ('+remaining+' remaining)</button></div>'
-    le.insertAdjacentHTML('beforeend',loadMoreHtml)
-    document.getElementById('lbLoadMoreBtn').addEventListener('click',function(){
-      lbVisibleCount+=25
-      renderLeaderboardRows()
-    })
-  }
 }
 function shareRank(){var r=document.getElementById('lbYouRank').textContent||'Unranked',s=document.getElementById('lbYouScore').textContent||'0';window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent('I\'m ranked '+r+' on @NovaonArc leaderboard with a score of '+s+' on Arc Testnet 🏆'),'_blank')}
 
