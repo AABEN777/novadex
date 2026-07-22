@@ -878,6 +878,28 @@ async function sendWithRetry(sendFn,maxRetries){
   throw lastErr
 }
 
+// Fallback for wallets (e.g. Zerion) whose own RPC relay unreliably rejects
+// eth_sendRawTransaction. Instead of asking the wallet to sign AND broadcast,
+// we ask it to only sign, then broadcast the already-signed transaction
+// ourselves directly through Arc's official RPC — bypassing the wallet's relay
+// for the send step entirely.
+async function sendViaDirectBroadcast(contract,method,args,overrides){
+  var callArgs=args.concat([overrides])
+  var populated=await contract[method].populateTransaction.apply(null,callArgs)
+  populated.chainId=ARC_ID
+  populated.from=walletAddress
+  var populatedFull=await signer.populateTransaction(populated)
+  var signedTx=await signer.signTransaction(populatedFull)
+  var txResponse=await readProvider.broadcastTransaction(signedTx)
+  return txResponse
+}
+
+function isNetworkBroadcastError(e){
+  var fullErrText='';try{fullErrText=JSON.stringify(e)}catch(je){fullErrText=String(e)}
+  fullErrText+=' '+(e&&e.message?e.message:'')
+  return fullErrText.indexOf('-32011')!==-1||fullErrText.toLowerCase().indexOf('request limit')!==-1||fullErrText.toLowerCase().indexOf('coalesce')!==-1||fullErrText.toLowerCase().indexOf('network error')!==-1
+}
+
 async function confirmSwap(){
   var btn=document.getElementById('confirmSwapBtn');btn.disabled=true;btn.textContent='Processing...'
   closeMod('confirmModal')
@@ -896,16 +918,28 @@ async function confirmSwap(){
     var router=new ethers.Contract(RS,RSA,signer),mc=new ethers.Contract(MC,MMA,signer)
     var mid=ethers.encodeBytes32String('NovaDEXSwap'),md=ethers.toUtf8Bytes('NovaDEX:'+ti+'->'+to)
     var stx
+    var swapDataFinal,usedFlippedDirection=false
     try{
-      var sd=router.interface.encodeFunctionData('swap',[ia,oa,ir,mo,walletAddress])
-      stx=await sendWithRetry(function(){return mc.memo(RS,sd,mid,md,{gasLimit:600000n,gasPrice:gp})})
+      swapDataFinal=router.interface.encodeFunctionData('swap',[ia,oa,ir,mo,walletAddress])
+      stx=await sendWithRetry(function(){return mc.memo(RS,swapDataFinal,mid,md,{gasLimit:600000n,gasPrice:gp})})
     }
     catch(fe){
       if(to==='cirBTC'||ti==='cirBTC'){
         var ot=new ethers.Contract(oa,E20,signer);var oal=await ot.allowance(walletAddress,RS)
         if(oal<mo)await ot.approve(RS,mo,{gasLimit:100000n,gasPrice:gp})
-        var sda=router.interface.encodeFunctionData('swap',[oa,ia,mo,ir,walletAddress])
-        stx=await sendWithRetry(function(){return mc.memo(RS,sda,mid,md,{gasLimit:600000n,gasPrice:gp})})
+        swapDataFinal=router.interface.encodeFunctionData('swap',[oa,ia,mo,ir,walletAddress])
+        usedFlippedDirection=true
+        try{
+          stx=await sendWithRetry(function(){return mc.memo(RS,swapDataFinal,mid,md,{gasLimit:600000n,gasPrice:gp})})
+        }catch(fe2){
+          if(isNetworkBroadcastError(fe2)){
+            ss2('statusBox','Wallet relay unreliable — trying direct broadcast to Arc... ⏳','pending')
+            stx=await sendViaDirectBroadcast(mc,'memo',[RS,swapDataFinal,mid,md],{gasLimit:600000n,gasPrice:gp})
+          }else{throw fe2}
+        }
+      }else if(isNetworkBroadcastError(fe)){
+        ss2('statusBox','Wallet relay unreliable — trying direct broadcast to Arc... ⏳','pending')
+        stx=await sendViaDirectBroadcast(mc,'memo',[RS,swapDataFinal,mid,md],{gasLimit:600000n,gasPrice:gp})
       }else{throw fe}
     }
     ss2('statusBox','Confirming on-chain... ⏳','pending')
@@ -955,7 +989,15 @@ async function addLiquidity(){
     if(al1<r1)await(await c1.approve(RL,r1,{gasLimit:100000n,gasPrice:gp})).wait()
     ss('liqStatusBox','Adding liquidity — confirm in wallet... ⏳','pending')
     var router=new ethers.Contract(RL,RLA,signer)
-    var tx=await router.addLiquidity(t0.address,t1.address,r0,r1,{gasLimit:500000n,gasPrice:gp})
+    var tx
+    try{
+      tx=await sendWithRetry(function(){return router.addLiquidity(t0.address,t1.address,r0,r1,{gasLimit:500000n,gasPrice:gp})})
+    }catch(le){
+      if(isNetworkBroadcastError(le)){
+        ss('liqStatusBox','Wallet relay unreliable — trying direct broadcast to Arc... ⏳','pending')
+        tx=await sendViaDirectBroadcast(router,'addLiquidity',[t0.address,t1.address,r0,r1],{gasLimit:500000n,gasPrice:gp})
+      }else{throw le}
+    }
     var rec=await tx.wait()
     await saveTx({type:'liquidity',action:'add',pair:pair,amount0:a0,amount1:a1,token0:pts[0],token1:pts[1],hash:rec.hash,status:'success'})
     ss('liqStatusBox','Liquidity added to '+pair+' | '+rec.hash.slice(0,10)+'...','success')
@@ -1215,21 +1257,24 @@ async function saveTx(tx){
       body:JSON.stringify(row)
     })
     var data=await res.json()
+    console.log('saveTx response:',res.status,data)
+    if(!res.ok){console.log('saveTx FAILED:',data);return null}
     return (data&&data[0])?data[0].id:null
   }catch(e){console.log('saveTx error:',e);return null}
 }
 
 async function updateTxStatus(rowId,updates){
-  if(!rowId)return
+  if(!rowId){console.log('updateTxStatus: no rowId, skipping update. This means saveTx likely failed silently.');return}
   try{
     var patch={}
     if(updates.hash!==undefined)patch.tx_hash=updates.hash
     if(updates.status!==undefined)patch.status=updates.status
-    await fetch(SBU+'/rest/v1/transaction_history?id=eq.'+rowId,{
+    var res=await fetch(SBU+'/rest/v1/transaction_history?id=eq.'+rowId,{
       method:'PATCH',
       headers:SBH,
       body:JSON.stringify(patch)
     })
+    console.log('updateTxStatus response:',res.status,'for rowId:',rowId,'patch:',patch)
   }catch(e){console.log('updateTxStatus error:',e)}
 }
 
