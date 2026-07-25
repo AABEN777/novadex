@@ -5,6 +5,14 @@ const ESCROW_WALLET_ADDRESS = "0x2c0cf9ea8f19eb05a4051f5c27b0d18dd6cc2e3c";
 const ESCROW_WALLET_BLOCKCHAIN = "ARC-TESTNET";
 
 export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -19,6 +27,7 @@ export default async function handler(req, res) {
   const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
   try {
+    // Verify the escrow, sender identity, and that recipient has already marked fulfilled
     const checkRes = await fetch(
       `${SUPABASE_URL}/rest/v1/escrows?id=eq.${escrowId}&select=*`,
       { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
@@ -39,6 +48,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Recipient has not marked their part as fulfilled yet' });
     }
 
+    // Release USDC from the Circle escrow wallet to the recipient
     const client = initiateDeveloperControlledWalletsClient({
       apiKey: process.env.CIRCLE_API_KEY,
       entitySecret: process.env.CIRCLE_ENTITY_SECRET,
@@ -62,6 +72,7 @@ export default async function handler(req, res) {
     const terminalStates = new Set(['COMPLETE', 'FAILED', 'CANCELLED', 'DENIED']);
     let txHash = null;
 
+    // Poll until the transfer completes (max ~30 seconds)
     for (let i = 0; i < 10 && !terminalStates.has(currentState); i++) {
       await new Promise((r) => setTimeout(r, 3000));
       const pollResponse = await client.getTransaction({ id: transactionId });
@@ -74,6 +85,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: `Transfer did not complete, ended in state: ${currentState}` });
     }
 
+    // Mark escrow as released in Supabase
     await fetch(`${SUPABASE_URL}/rest/v1/escrows?id=eq.${escrowId}`, {
       method: 'PATCH',
       headers: {
