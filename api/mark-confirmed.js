@@ -1,8 +1,7 @@
 import { initiateDeveloperControlledWalletsClient } from "@circle-fin/developer-controlled-wallets";
 
-const ARC_TESTNET_USDC = "0x3600000000000000000000000000000000000000";
-const ESCROW_WALLET_ADDRESS = "0x2c0cf9ea8f19eb05a4051f5c27b0d18dd6cc2e3c";
-const ESCROW_WALLET_BLOCKCHAIN = "ARC-TESTNET";
+const ESCROW_WALLET_ID = "d4e56011-550e-5b0f-90e6-73f2422df581";
+const USDC_TOKEN_ID = "ef87c8c3-85de-598a-af50-c5135eecfa74";
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -55,17 +54,16 @@ export default async function handler(req, res) {
     });
 
     const transferResponse = await client.createTransaction({
-      blockchain: ESCROW_WALLET_BLOCKCHAIN,
-      walletAddress: ESCROW_WALLET_ADDRESS,
-      tokenAddress: ARC_TESTNET_USDC,
+      walletId: ESCROW_WALLET_ID,
+      tokenId: USDC_TOKEN_ID,
       destinationAddress: escrow.recipient_address,
-      amount: [escrow.amount.toString()],
+      amounts: [escrow.amount.toString()],
       fee: { type: "level", config: { feeLevel: "MEDIUM" } },
     });
 
     const transactionId = transferResponse.data?.id;
     if (!transactionId) {
-      return res.status(500).json({ error: 'Circle transaction creation failed', details: transferResponse.data });
+      return res.status(500).json({ error: 'Circle transaction creation failed', details: transferResponse.data, fullResponse: JSON.stringify(transferResponse) });
     }
 
     let currentState = transferResponse.data?.state ?? '';
@@ -103,6 +101,10 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, txHash });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.log('mark-confirmed error:', err);
+    return res.status(500).json({
+      error: err.message,
+      circleError: err.response?.data || err.response?.body || null
+    });
   }
 }
