@@ -1,0 +1,96 @@
+import { initiateDeveloperControlledWalletsClient } from "@circle-fin/developer-controlled-wallets";
+
+const ARC_TESTNET_USDC = "0x3600000000000000000000000000000000000000";
+const ESCROW_WALLET_ADDRESS = "0x2c0cf9ea8f19eb05a4051f5c27b0d18dd6cc2e3c";
+const ESCROW_WALLET_BLOCKCHAIN = "ARC-TESTNET";
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { escrowId, senderAddress } = req.body;
+
+  if (!escrowId || !senderAddress) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  const SUPABASE_URL = process.env.SUPABASE_URL;
+  const SUPABASE_KEY = process.env.SUPABASE_KEY;
+
+  try {
+    const checkRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/escrows?id=eq.${escrowId}&select=*`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+    );
+    const rows = await checkRes.json();
+    const escrow = rows && rows[0];
+
+    if (!escrow) {
+      return res.status(404).json({ error: 'Escrow not found' });
+    }
+    if (escrow.sender_address.toLowerCase() !== senderAddress.toLowerCase()) {
+      return res.status(403).json({ error: 'Only the original sender can confirm this escrow' });
+    }
+    if (escrow.status !== 'pending') {
+      return res.status(400).json({ error: 'This escrow is no longer pending' });
+    }
+    if (!escrow.recipient_fulfilled) {
+      return res.status(400).json({ error: 'Recipient has not marked their part as fulfilled yet' });
+    }
+
+    const client = initiateDeveloperControlledWalletsClient({
+      apiKey: process.env.CIRCLE_API_KEY,
+      entitySecret: process.env.CIRCLE_ENTITY_SECRET,
+    });
+
+    const transferResponse = await client.createTransaction({
+      blockchain: ESCROW_WALLET_BLOCKCHAIN,
+      walletAddress: ESCROW_WALLET_ADDRESS,
+      tokenAddress: ARC_TESTNET_USDC,
+      destinationAddress: escrow.recipient_address,
+      amount: [escrow.amount.toString()],
+      fee: { type: "level", config: { feeLevel: "MEDIUM" } },
+    });
+
+    const transactionId = transferResponse.data?.id;
+    if (!transactionId) {
+      return res.status(500).json({ error: 'Circle transaction creation failed', details: transferResponse.data });
+    }
+
+    let currentState = transferResponse.data?.state ?? '';
+    const terminalStates = new Set(['COMPLETE', 'FAILED', 'CANCELLED', 'DENIED']);
+    let txHash = null;
+
+    for (let i = 0; i < 10 && !terminalStates.has(currentState); i++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      const pollResponse = await client.getTransaction({ id: transactionId });
+      const tx = pollResponse.data?.transaction;
+      currentState = tx?.state ?? '';
+      txHash = tx?.txHash ?? null;
+    }
+
+    if (currentState !== 'COMPLETE') {
+      return res.status(500).json({ error: `Transfer did not complete, ended in state: ${currentState}` });
+    }
+
+    await fetch(`${SUPABASE_URL}/rest/v1/escrows?id=eq.${escrowId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      },
+      body: JSON.stringify({
+        sender_confirmed: true,
+        sender_confirmed_at: new Date().toISOString(),
+        status: 'released',
+        release_tx_hash: txHash
+      })
+    });
+
+    return res.status(200).json({ success: true, txHash });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
