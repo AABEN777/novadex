@@ -1,16 +1,14 @@
 import { initiateDeveloperControlledWalletsClient } from "@circle-fin/developer-controlled-wallets";
 
-const ARC_TESTNET_USDC = "0x3600000000000000000000000000000000000000";
-const ESCROW_WALLET_ADDRESS = "0x2c0cf9ea8f19eb05a4051f5c27b0d18dd6cc2e3c";
-const ESCROW_WALLET_BLOCKCHAIN = "ARC-TESTNET";
+const ESCROW_WALLET_ID = "d4e56011-550e-5b0f-90e6-73f2422df581";
+const USDC_TOKEN_ID = "ef87c8c3-85de-598a-af50-c5135eecfa74";
 
 async function releaseFunds(client, recipientAddress, amount) {
   const transferResponse = await client.createTransaction({
-    blockchain: ESCROW_WALLET_BLOCKCHAIN,
-    walletAddress: ESCROW_WALLET_ADDRESS,
-    tokenAddress: ARC_TESTNET_USDC,
+    walletId: ESCROW_WALLET_ID,
+    tokenId: USDC_TOKEN_ID,
     destinationAddress: recipientAddress,
-    amount: [amount.toString()],
+    amounts: [amount.toString()],
     fee: { type: "level", config: { feeLevel: "MEDIUM" } },
   });
 
@@ -33,6 +31,7 @@ async function releaseFunds(client, recipientAddress, amount) {
 }
 
 export default async function handler(req, res) {
+  // Optional shared secret so random internet traffic can't trigger this endpoint
   const authHeader = req.headers['authorization'];
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -44,6 +43,7 @@ export default async function handler(req, res) {
   try {
     const nowIso = new Date().toISOString();
 
+    // Find all pending escrows past their deadline
     const res1 = await fetch(
       `${SUPABASE_URL}/rest/v1/escrows?status=eq.pending&deadline=lt.${nowIso}&select=*`,
       { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
@@ -64,6 +64,7 @@ export default async function handler(req, res) {
     for (const escrow of expiredEscrows) {
       try {
         if (escrow.recipient_fulfilled && !escrow.sender_disputed) {
+          // Recipient did their part, sender never responded -> auto-release to recipient
           const txHash = await releaseFunds(client, escrow.recipient_address, escrow.amount);
           if (txHash) {
             await fetch(`${SUPABASE_URL}/rest/v1/escrows?id=eq.${escrow.id}`, {
@@ -78,6 +79,7 @@ export default async function handler(req, res) {
             results.push({ id: escrow.id, action: 'auto-released', txHash });
           }
         } else if (!escrow.recipient_fulfilled) {
+          // Recipient never confirmed fulfillment -> auto-refund to sender
           const txHash = await releaseFunds(client, escrow.sender_address, escrow.amount);
           if (txHash) {
             await fetch(`${SUPABASE_URL}/rest/v1/escrows?id=eq.${escrow.id}`, {
@@ -92,6 +94,7 @@ export default async function handler(req, res) {
             results.push({ id: escrow.id, action: 'auto-refunded', txHash });
           }
         }
+        // If recipient_fulfilled is true AND sender_disputed is true, leave it alone - needs manual resolution
       } catch (escrowErr) {
         results.push({ id: escrow.id, action: 'error', error: escrowErr.message });
       }
