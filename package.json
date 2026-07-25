@@ -1,0 +1,7 @@
+{
+  "name": "novadex",
+  "version": "1.0.0",
+  "dependencies": {
+    "@circle-fin/developer-controlled-wallets": "^1.0.0"
+  }
+}
