@@ -190,6 +190,8 @@
 <symbol id="i-bank" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13h12M2 6h12M8 2l6 4H2L8 2zM5 6v7M8 6v7M11 6v7"/></symbol>
 <symbol id="i-chart" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12l4-4 3 3 5-6"/><path d="M2 14h12"/></symbol>
 <symbol id="i-lock" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="10" height="7" rx="2"/><path d="M5 7V5a3 3 0 016 0v2"/></symbol>
+<symbol id="i-bell" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2a4 4 0 00-4 4v2.5L2.5 11h11L12 8.5V6a4 4 0 00-4-4z"/><path d="M6.5 13a1.5 1.5 0 003 0"/></symbol>
+<symbol id="i-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3 3 7-7"/></symbol>
 <symbol id="i-signal" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 13a8.5 8.5 0 0112 0M5 10a5 5 0 016 0M8 7v6"/></symbol>
 <symbol id="i-home" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7l6-5 6 5v7H2V7z"/><path d="M6 14V9h4v5"/></symbol>
 <symbol id="i-search" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="6.5" cy="6.5" r="4"/><path d="M11 11l3 3"/></symbol>
@@ -205,12 +207,23 @@
 <header class="hdr">
   <div class="logo" id="logoBtn">Nova<span>DEX</span></div>
   <div class="hdr-r">
+    <div style="position:relative;display:none" id="escrowBellWrap">
+      <button class="ibtn" id="escrowBellBtn"><svg><use href="#i-bell"/></svg></button>
+      <div id="escrowBellDot" style="display:none;position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--er);border:2px solid var(--bg)"></div>
+    </div>
     <button class="ibtn" id="themeBtn"><svg><use href="#i-moon"/></svg></button>
     <button class="npill" id="netStatusBtn"><div class="ndot grey" id="netDot"></div><span id="netLabel">Network</span></button>
     <div id="headerWallet"><button class="btnc" id="connectWalletBtn">Connect Wallet</button></div>
     <button class="ham" id="hamburgerBtn"><div class="hl"></div><div class="hl"></div><div class="hl"></div></button>
   </div>
 </header>
+
+<!-- ESCROW NOTIFICATIONS DROPDOWN -->
+<div class="sov" id="escrowBellOverlay"></div>
+<div id="escrowBellPanel" style="display:none;position:fixed;top:64px;right:16px;width:320px;max-width:calc(100vw - 32px);background:var(--sf);border:1px solid var(--bdm);border-radius:var(--rl);box-shadow:var(--sh);z-index:300;max-height:70vh;overflow-y:auto">
+  <div style="padding:14px 16px;border-bottom:1px solid var(--bd);font-size:.867rem;font-weight:700">Escrow updates</div>
+  <div id="escrowBellList" style="padding:8px"></div>
+</div>
 
 <!-- SIDE MENU -->
 <div class="sov" id="sideOverlay"></div>
@@ -513,6 +526,32 @@
         <button class="tab" id="escrowReceivedTab">Received</button>
       </div>
 
+      <!-- HOW IT WORKS EXPLAINER -->
+      <div class="card" id="escrowHowItWorks" style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <div style="font-size:.867rem;font-weight:700">How escrow works</div>
+          <button class="ibtn" id="escrowHowItWorksClose" style="width:26px;height:26px"><svg width="12" height="12"><use href="#i-x"/></svg></button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="width:22px;height:22px;border-radius:50%;background:var(--acd);color:var(--ac);font-size:.733rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div>
+            <div style="font-size:.8rem;color:var(--t2);line-height:1.5">Sender deposits USDC into a secure Circle-managed escrow wallet</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="width:22px;height:22px;border-radius:50%;background:var(--acd);color:var(--ac);font-size:.733rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div>
+            <div style="font-size:.8rem;color:var(--t2);line-height:1.5">Recipient marks their part fulfilled once the deal is done</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="width:22px;height:22px;border-radius:50%;background:var(--acd);color:var(--ac);font-size:.733rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div>
+            <div style="font-size:.8rem;color:var(--t2);line-height:1.5">Sender confirms, releasing funds to the recipient instantly</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="width:22px;height:22px;border-radius:50%;background:var(--acd);color:var(--ac);font-size:.733rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div>
+            <div style="font-size:.8rem;color:var(--t2);line-height:1.5">If a deadline passes with no response, funds auto-release or auto-refund based on what's actually happened — so neither side can be stuck</div>
+          </div>
+        </div>
+      </div>
+
       <!-- CREATE -->
       <div id="escrowCreatePanel">
         <div class="card">
@@ -717,6 +756,26 @@ window.addEventListener('DOMContentLoaded',function(){
   document.getElementById('escrowSentTab').addEventListener('click',function(){setEscrowTab('sent');loadEscrowSent()})
   document.getElementById('escrowReceivedTab').addEventListener('click',function(){setEscrowTab('received');loadEscrowReceived()})
   document.getElementById('escrowCreateBtn').addEventListener('click',createEscrow)
+  document.getElementById('escrowHowItWorksClose').addEventListener('click',function(){
+    document.getElementById('escrowHowItWorks').style.display='none'
+    localStorage.setItem('novadex_escrow_howitworks_dismissed','true')
+  })
+  document.getElementById('escrowBellBtn').addEventListener('click',function(){
+    var panel=document.getElementById('escrowBellPanel')
+    var isOpen=panel.style.display==='block'
+    if(isOpen){
+      panel.style.display='none'
+      document.getElementById('escrowBellOverlay').classList.remove('open')
+    }else{
+      panel.style.display='block'
+      document.getElementById('escrowBellOverlay').classList.add('open')
+      loadEscrowNotifications()
+    }
+  })
+  document.getElementById('escrowBellOverlay').addEventListener('click',function(){
+    document.getElementById('escrowBellPanel').style.display='none'
+    document.getElementById('escrowBellOverlay').classList.remove('open')
+  })
 
   window.addEventListener('popstate',function(e){var p=(e.state&&e.state.page)||'home';showPage(p,true)})
   checkNet();buildChart('USDC-EURC');renderHistory()
@@ -1428,7 +1487,17 @@ function unlockEscrow(){
     escrowUnlocked=true
     document.getElementById('escrowGate').style.display='none'
     document.getElementById('escrowContent').style.display='block'
-    if(connected)loadEscrowUSDCBal()
+    document.getElementById('escrowBellWrap').style.display='block'
+    if(localStorage.getItem('novadex_escrow_howitworks_dismissed')==='true'){
+      document.getElementById('escrowHowItWorks').style.display='none'
+    }
+    if(connected){
+      loadEscrowUSDCBal()
+      loadEscrowNotifications()
+      if(!window._escrowNotifInterval){
+        window._escrowNotifInterval=setInterval(loadEscrowNotifications,60000)
+      }
+    }
   }else{
     var b=document.getElementById('escrowGateStatus')
     b.textContent='Incorrect access code'
@@ -1527,15 +1596,21 @@ function renderEscrowList(container,rows,mode){
   container.innerHTML=rows.map(function(e){
     var counterparty=mode==='sent'?e.recipient_address:e.sender_address
     var shortCp=counterparty.slice(0,6)+'...'+counterparty.slice(-4)
-    var statusColor=e.status==='released'?'success':e.status==='refunded'?'pending':e.status==='disputed'?'error':'pending'
+    var statusMeta={
+      pending:{cls:'pending',icon:'#i-clock',label:'Pending'},
+      released:{cls:'success',icon:'#i-check',label:'Released'},
+      refunded:{cls:'pending',icon:'#i-clock',label:'Refunded'},
+      disputed:{cls:'error',icon:'#i-lock',label:'Disputed'}
+    }
+    var sm=statusMeta[e.status]||statusMeta.pending
     var deadlineStr=new Date(e.deadline).toLocaleString()
     var actionHtml=''
 
     if(e.status==='pending'){
       if(mode==='received'&&!e.recipient_fulfilled){
-        actionHtml='<button class="btnp" style="margin-top:10px" onclick="escrowMarkFulfilled('+e.id+')">Mark as Fulfilled</button>'
+        actionHtml='<button class="btnp" style="margin-top:10px" id="escrowAction'+e.id+'" onclick="escrowMarkFulfilled('+e.id+')">Mark as Fulfilled</button>'
       }else if(mode==='sent'&&e.recipient_fulfilled&&!e.sender_confirmed){
-        actionHtml='<button class="btnp" style="margin-top:10px" onclick="escrowMarkConfirmed('+e.id+')">Confirm &amp; Release</button>'
+        actionHtml='<button class="btnp" style="margin-top:10px" id="escrowAction'+e.id+'" onclick="escrowMarkConfirmed('+e.id+')">Confirm &amp; Release</button>'
       }else if(mode==='received'&&e.recipient_fulfilled){
         actionHtml='<div class="ibox" style="margin-top:10px">Waiting for sender to confirm</div>'
       }else if(mode==='sent'&&!e.recipient_fulfilled){
@@ -1546,18 +1621,22 @@ function renderEscrowList(container,rows,mode){
     return '<div class="pblk">'
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">'
       +'<div><div class="pblk-t">'+(e.description||'Escrow #'+e.id)+'</div><div style="font-size:.767rem;color:var(--t4)">'+(mode==='sent'?'To: ':'From: ')+shortCp+'</div></div>'
-      +'<span class="tbg '+statusColor+'">'+e.status+'</span>'
+      +'<div style="display:flex;align-items:center;gap:5px" class="tbg '+sm.cls+'"><svg width="11" height="11"><use href="'+sm.icon+'"/></svg>'+sm.label+'</div>'
       +'</div>'
       +'<div class="prow"><span class="prowl">Amount</span><span class="prowv">'+e.amount+' USDC</span></div>'
       +'<div class="prow"><span class="prowl">Deadline</span><span class="prowv" style="font-size:.767rem">'+deadlineStr+'</span></div>'
       +'<div class="prow"><span class="prowl">Recipient fulfilled</span><span class="prowv">'+(e.recipient_fulfilled?'Yes':'No')+'</span></div>'
       +(e.release_tx_hash?'<div class="prow"><span class="prowl">Transaction</span><a class="txil" href="'+EXP+'/tx/'+e.release_tx_hash+'" target="_blank">View ↗</a></div>':'')
       +actionHtml
+      +'<div class="sbox" id="escrowStatus'+e.id+'"></div>'
       +'</div>'
   }).join('')
 }
 
 async function escrowMarkFulfilled(escrowId){
+  var btn=document.getElementById('escrowAction'+escrowId)
+  var statusBox=document.getElementById('escrowStatus'+escrowId)
+  if(btn){btn.disabled=true;btn.textContent='Marking as fulfilled...'}
   try{
     var res=await fetch(ESCROW_API_BASE+'/mark-fulfilled',{
       method:'POST',
@@ -1565,13 +1644,79 @@ async function escrowMarkFulfilled(escrowId){
       body:JSON.stringify({escrowId:escrowId,recipientAddress:walletAddress})
     })
     var data=await res.json()
-    if(data.success){loadEscrowReceived()}
-    else{alert('Failed: '+(data.error||'unknown error'))}
-  }catch(e){alert('Error: '+e.message)}
+    if(data.success){
+      if(statusBox){statusBox.textContent='Marked as fulfilled ✓';statusBox.className='sbox success'}
+      loadEscrowReceived()
+      loadEscrowNotifications()
+    }else{
+      if(btn){btn.disabled=false;btn.textContent='Mark as Fulfilled'}
+      if(statusBox){statusBox.textContent='❌ '+(data.error||'Failed to mark as fulfilled');statusBox.className='sbox error'}
+    }
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Mark as Fulfilled'}
+    if(statusBox){statusBox.textContent='❌ '+e.message;statusBox.className='sbox error'}
+  }
+}
+
+async function loadEscrowNotifications(){
+  if(!connected||!escrowUnlocked)return
+  try{
+    var [sentRes,receivedRes]=await Promise.all([
+      fetch(SBU+'/rest/v1/escrows?sender_address=eq.'+walletAddress.toLowerCase()+'&select=*&order=created_at.desc',{headers:SBH}),
+      fetch(SBU+'/rest/v1/escrows?recipient_address=eq.'+walletAddress.toLowerCase()+'&select=*&order=created_at.desc',{headers:SBH})
+    ])
+    var sent=await sentRes.json()
+    var received=await receivedRes.json()
+    if(!Array.isArray(sent))sent=[]
+    if(!Array.isArray(received))received=[]
+
+    var items=[]
+    sent.forEach(function(e){
+      if(e.status==='pending'&&e.recipient_fulfilled&&!e.sender_confirmed){
+        items.push({id:e.id,type:'action',text:'Ready to confirm & release '+e.amount+' USDC to '+e.recipient_address.slice(0,6)+'...',time:e.recipient_fulfilled_at})
+      }
+      if(e.status==='released'&&e.sender_confirmed){
+        items.push({id:e.id,type:'info',text:'Released '+e.amount+' USDC to '+e.recipient_address.slice(0,6)+'...',time:e.sender_confirmed_at})
+      }
+      if(e.status==='refunded'){
+        items.push({id:e.id,type:'info',text:'Refunded '+e.amount+' USDC from an expired escrow',time:e.created_at})
+      }
+    })
+    received.forEach(function(e){
+      if(e.status==='pending'&&!e.recipient_fulfilled){
+        items.push({id:e.id,type:'action',text:'Mark your part fulfilled for '+e.amount+' USDC from '+e.sender_address.slice(0,6)+'...',time:e.created_at})
+      }
+      if(e.status==='released'){
+        items.push({id:e.id,type:'info',text:'Received '+e.amount+' USDC from '+e.sender_address.slice(0,6)+'...',time:e.sender_confirmed_at||e.created_at})
+      }
+    })
+
+    items.sort(function(a,b){return new Date(b.time)-new Date(a.time)})
+    var actionCount=items.filter(function(i){return i.type==='action'}).length
+
+    document.getElementById('escrowBellDot').style.display=actionCount>0?'block':'none'
+
+    var listEl=document.getElementById('escrowBellList')
+    if(items.length===0){
+      listEl.innerHTML='<div class="empty" style="padding:20px">No updates yet</div>'
+    }else{
+      listEl.innerHTML=items.slice(0,15).map(function(i){
+        var dotColor=i.type==='action'?'var(--er)':'var(--ok)'
+        return '<div style="padding:10px 8px;border-bottom:1px solid var(--bd);display:flex;gap:10px;align-items:flex-start">'
+          +'<div style="width:6px;height:6px;border-radius:50%;background:'+dotColor+';margin-top:6px;flex-shrink:0"></div>'
+          +'<div style="font-size:.8rem;color:var(--t2);line-height:1.4">'+i.text+'</div>'
+          +'</div>'
+      }).join('')
+    }
+  }catch(e){console.log('escrow notifications error:',e)}
 }
 
 async function escrowMarkConfirmed(escrowId){
-  if(!confirm('This will release the USDC to the recipient. Continue?'))return
+  if(!window.confirm('This will release the USDC to the recipient. Continue?')){return}
+  var btn=document.getElementById('escrowAction'+escrowId)
+  var statusBox=document.getElementById('escrowStatus'+escrowId)
+  if(btn){btn.disabled=true;btn.textContent='Releasing funds...'}
+  if(statusBox){statusBox.textContent='Releasing USDC to recipient — this can take up to 30 seconds... ⏳';statusBox.className='sbox pending'}
   try{
     var res=await fetch(ESCROW_API_BASE+'/mark-confirmed',{
       method:'POST',
@@ -1579,9 +1724,18 @@ async function escrowMarkConfirmed(escrowId){
       body:JSON.stringify({escrowId:escrowId,senderAddress:walletAddress})
     })
     var data=await res.json()
-    if(data.success){loadEscrowSent()}
-    else{alert('Failed: '+(data.error||'unknown error'))}
-  }catch(e){alert('Error: '+e.message)}
+    if(data.success){
+      if(statusBox){statusBox.textContent='Released ✓ '+(data.txHash?data.txHash.slice(0,10)+'...':'');statusBox.className='sbox success'}
+      loadEscrowSent()
+      loadEscrowNotifications()
+    }else{
+      if(btn){btn.disabled=false;btn.textContent='Confirm & Release'}
+      if(statusBox){statusBox.textContent='❌ '+(data.error||'Failed to release funds');statusBox.className='sbox error'}
+    }
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Confirm & Release'}
+    if(statusBox){statusBox.textContent='❌ '+e.message;statusBox.className='sbox error'}
+  }
 }
 
 function ss(id,msg,type){var b=document.getElementById(id);b.textContent=msg;b.className='sbox '+type}
