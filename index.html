@@ -478,6 +478,80 @@
   </div>
 </div>
 
+<!-- ESCROW PAGE (access-code gated) -->
+<div class="page" id="escrowPage">
+  <div class="con" style="padding-top:28px;padding-bottom:60px">
+
+    <!-- Gate screen -->
+    <div id="escrowGate">
+      <div class="phdr">
+        <div class="phdr-t">Escrow</div>
+        <div class="phdr-s">This feature requires an access code</div>
+      </div>
+      <div class="card" style="text-align:center;padding:32px 20px">
+        <div class="atile-ico" style="margin:0 auto 16px"><svg><use href="#i-lock"/></svg></div>
+        <div style="font-size:.933rem;font-weight:700;margin-bottom:6px">Restricted feature</div>
+        <div style="font-size:.8rem;color:var(--t3);margin-bottom:20px;line-height:1.5">Escrow is currently in private testing. Enter your access code to continue.</div>
+        <div class="irow" style="justify-content:center">
+          <input type="password" id="escrowCodeInput" placeholder="Access code" style="text-align:center;letter-spacing:.3em" maxlength="12"/>
+        </div>
+        <button class="btnp" id="escrowUnlockBtn">Unlock</button>
+        <div class="sbox" id="escrowGateStatus"></div>
+      </div>
+    </div>
+
+    <!-- Real escrow UI, hidden until unlocked -->
+    <div id="escrowContent" style="display:none">
+      <div class="phdr">
+        <div class="phdr-t">Escrow</div>
+        <div class="phdr-s">Programmable USDC payments with mutual confirmation</div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" id="escrowCreateTab">Create</button>
+        <button class="tab" id="escrowSentTab">Sent</button>
+        <button class="tab" id="escrowReceivedTab">Received</button>
+      </div>
+
+      <!-- CREATE -->
+      <div id="escrowCreatePanel">
+        <div class="card">
+          <div class="flbl">Recipient address</div>
+          <div class="irow"><input type="text" id="escrowRecipient" placeholder="0x..." style="text-align:left;font-size:.933rem;font-weight:500"/></div>
+          <div style="height:10px"></div>
+          <div class="flbl">Amount (USDC)<div class="flbl-r">Balance: <span id="escrowUSDCBal">—</span></div></div>
+          <div class="irow"><input type="number" id="escrowAmount" placeholder="0.00" min="0"/></div>
+          <div style="height:10px"></div>
+          <div class="flbl">Description</div>
+          <div class="irow"><input type="text" id="escrowDescription" placeholder="What is this payment for?" style="text-align:left;font-size:.867rem"/></div>
+          <div style="height:10px"></div>
+          <div class="flbl" style="margin-bottom:8px">Deadline</div>
+          <select class="selful" id="escrowDeadline">
+            <option value="1">1 day</option>
+            <option value="3">3 days</option>
+            <option value="7" selected>7 days</option>
+            <option value="14">14 days</option>
+            <option value="30">30 days</option>
+          </select>
+          <div class="ibox">Funds are held in a Circle-managed escrow wallet. They release automatically once both parties confirm, or based on deadline rules if one side doesn't respond.</div>
+          <button class="btnp" id="escrowCreateBtn">Deposit to Escrow</button>
+          <div class="sbox" id="escrowCreateStatus"></div>
+        </div>
+      </div>
+
+      <!-- SENT -->
+      <div id="escrowSentPanel" style="display:none">
+        <div id="escrowSentList" class="card"><div class="empty">Loading...</div></div>
+      </div>
+
+      <!-- RECEIVED -->
+      <div id="escrowReceivedPanel" style="display:none">
+        <div id="escrowReceivedList" class="card"><div class="empty">Loading...</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- WALLET MODAL -->
 <div class="mov" id="walletModal">
   <div class="mdl">
@@ -546,6 +620,9 @@ const SBK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6
 const SBH={'Content-Type':'application/json','apikey':SBK,'Authorization':'Bearer '+SBK}
 
 var provider,signer,walletAddress,connected=false,totalVolume=0,priceChart=null,isDark=true,txFilter='all'
+var escrowUnlocked=false
+const ESCROW_ACCESS_CODE='2580'
+const ESCROW_API_BASE='https://novadex-opal.vercel.app/api'
 var discoveredWallets=[]
 
 // EIP-6963: listen for wallet providers announcing themselves.
@@ -632,10 +709,19 @@ window.addEventListener('DOMContentLoaded',function(){
     }catch(e){console.log('clear history error:',e)}
   })
   document.querySelectorAll('.ctab').forEach(function(tab){tab.addEventListener('click',function(){document.querySelectorAll('.ctab').forEach(function(t){t.classList.remove('active')});tab.classList.add('active');buildChart(tab.dataset.pair)})})
+
+  // Escrow access gate
+  document.getElementById('escrowUnlockBtn').addEventListener('click',unlockEscrow)
+  document.getElementById('escrowCodeInput').addEventListener('keypress',function(e){if(e.key==='Enter')unlockEscrow()})
+  document.getElementById('escrowCreateTab').addEventListener('click',function(){setEscrowTab('create')})
+  document.getElementById('escrowSentTab').addEventListener('click',function(){setEscrowTab('sent');loadEscrowSent()})
+  document.getElementById('escrowReceivedTab').addEventListener('click',function(){setEscrowTab('received');loadEscrowReceived()})
+  document.getElementById('escrowCreateBtn').addEventListener('click',createEscrow)
+
   window.addEventListener('popstate',function(e){var p=(e.state&&e.state.page)||'home';showPage(p,true)})
   checkNet();buildChart('USDC-EURC');renderHistory()
   var ip=(window.location.hash||'').replace('#','')||'home'
-  var vp=['home','swap','liquidity','lending','leaderboard','history']
+  var vp=['home','swap','liquidity','lending','leaderboard','history','escrow']
   if(vp.indexOf(ip)===-1)ip='home'
   showPage(ip,true)
   try{history.replaceState({page:ip},'',ip==='home'?window.location.pathname:'#'+ip)}catch(e){}
@@ -658,7 +744,7 @@ function toggleTheme(){
 }
 
 function showPage(page,skipH){
-  var pm={home:'homePage',swap:'swapPage',liquidity:'liquidityPage',lending:'lendingPage',leaderboard:'leaderboardPage',history:'historyPage'}
+  var pm={home:'homePage',swap:'swapPage',liquidity:'liquidityPage',lending:'lendingPage',leaderboard:'leaderboardPage',history:'historyPage',escrow:'escrowPage'}
   var sm={home:'sideHome',swap:'sideSwap',liquidity:'sideLiquidity',lending:'sideLending',leaderboard:'sideLeaderboard',history:'sideHistory'}
   Object.values(pm).forEach(function(id){document.getElementById(id).classList.remove('active')})
   Object.values(sm).forEach(function(id){document.getElementById(id).classList.remove('active')})
@@ -671,6 +757,7 @@ function showPage(page,skipH){
   if(page==='swap'){setTimeout(function(){buildChart(document.querySelector('.ctab.active').dataset.pair)},100);if(connected)fetchBals()}
   if(page==='liquidity'&&connected){updateLiqLabels();fetchLiqBals();if(document.getElementById('liqSharePanel').style.display==='block')loadPoolShare()}
   if(page==='lending'&&connected){loadLendBal();loadPoolBal();if(document.getElementById('lendPositionPanel').style.display==='block')loadPosition();if(document.getElementById('lendRepayPanel').style.display==='block')loadRepayDetails()}
+  if(page==='escrow'&&escrowUnlocked&&connected){loadEscrowUSDCBal()}
 }
 
 function refreshCurrentPageData(){
@@ -820,15 +907,21 @@ function disconnectWallet(){
 async function fetchBals(){
   if(!connected||!provider)return
   var ti=document.getElementById('tokenIn').value,to=document.getElementById('tokenOut').value
-  var [bi,bo]=await Promise.all([getBal(ti),getBal(to)])
-  document.getElementById('balanceIn').textContent=bi+' '+ti
-  document.getElementById('balanceOut').textContent=bo+' '+to
+  document.getElementById('balanceIn').textContent='...'
+  document.getElementById('balanceOut').textContent='...'
+  getBal(ti).then(function(bi){document.getElementById('balanceIn').textContent=bi+' '+ti})
+  getBal(to).then(function(bo){document.getElementById('balanceOut').textContent=bo+' '+to})
 }
 async function getBal(sym){
-  try{var t=TK[sym];if(!t)return'0.00';var c=new ethers.Contract(t.address,E20,readProvider);var [r,d]=await Promise.all([c.balanceOf(walletAddress),c.decimals()]);return parseFloat(ethers.formatUnits(r,d)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:6})}catch(e){console.log('getBal error for '+sym+':',e);return'0.00'}
+  try{
+    var t=TK[sym];if(!t)return'0.00'
+    var c=new ethers.Contract(t.address,E20,readProvider)
+    var r=await c.balanceOf(walletAddress)
+    return parseFloat(ethers.formatUnits(r,t.decimals)).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:6})
+  }catch(e){console.log('getBal error for '+sym+':',e);return'0.00'}
 }
 function setMax(){if(!connected)return;var n=parseFloat(document.getElementById('balanceIn').textContent.replace(/,/g,''));if(!isNaN(n)&&n>0){document.getElementById('amountIn').value=n;updateQuote()}}
-async function chkBal(sym,amt){try{var t=TK[sym];if(!t)return true;var c=new ethers.Contract(t.address,E20,readProvider);var r=await c.balanceOf(walletAddress);var d=await c.decimals();return parseFloat(ethers.formatUnits(r,d))>=amt}catch{return true}}
+async function chkBal(sym,amt){try{var t=TK[sym];if(!t)return true;var c=new ethers.Contract(t.address,E20,readProvider);var r=await c.balanceOf(walletAddress);return parseFloat(ethers.formatUnits(r,t.decimals))>=amt}catch{return true}}
 
 async function updateQuote(){
   var amt=parseFloat(document.getElementById('amountIn').value)
@@ -1326,6 +1419,169 @@ async function renderHistory(){
     return'<div class="txi"><div class="txii'+icoc+'"><svg><use href="'+ico+'"/></svg></div><div class="txin"><div class="txip">'+pt+'</div><div class="txit">'+new Date(tx.timestamp).toLocaleString()+'</div><a class="txil" href="'+lk+'" target="_blank">'+sh+' ↗</a></div><div class="txia">'+ah+'<span class="tbg '+bg+'">'+bg+'</span></div></div>'
   }).join('')}
   c.querySelectorAll('.tfbtn').forEach(function(btn){btn.addEventListener('click',function(){txFilter=btn.dataset.f;renderHistory()})})
+}
+
+// ── ESCROW ────────────────────────────────────────────────────
+function unlockEscrow(){
+  var input=document.getElementById('escrowCodeInput').value
+  if(input===ESCROW_ACCESS_CODE){
+    escrowUnlocked=true
+    document.getElementById('escrowGate').style.display='none'
+    document.getElementById('escrowContent').style.display='block'
+    if(connected)loadEscrowUSDCBal()
+  }else{
+    var b=document.getElementById('escrowGateStatus')
+    b.textContent='Incorrect access code'
+    b.className='sbox error'
+  }
+}
+
+function setEscrowTab(tab){
+  document.getElementById('escrowCreatePanel').style.display=tab==='create'?'block':'none'
+  document.getElementById('escrowSentPanel').style.display=tab==='sent'?'block':'none'
+  document.getElementById('escrowReceivedPanel').style.display=tab==='received'?'block':'none'
+  ;['escrowCreateTab','escrowSentTab','escrowReceivedTab'].forEach(function(id){document.getElementById(id).classList.remove('active')})
+  var m={create:'escrowCreateTab',sent:'escrowSentTab',received:'escrowReceivedTab'}
+  document.getElementById(m[tab]).classList.add('active')
+}
+
+async function loadEscrowUSDCBal(){
+  if(!connected)return
+  var b=await getBal('USDC')
+  document.getElementById('escrowUSDCBal').textContent=b+' USDC'
+}
+
+const ESCROW_WALLET_ADDR='0x2c0cf9ea8f19eb05a4051f5c27b0d18dd6cc2e3c'
+
+async function createEscrow(){
+  if(!connected){ss2('escrowCreateStatus','Connect your wallet first','error');return}
+  var recipient=document.getElementById('escrowRecipient').value.trim()
+  var amt=parseFloat(document.getElementById('escrowAmount').value)
+  var desc=document.getElementById('escrowDescription').value.trim()
+  var deadlineDays=parseInt(document.getElementById('escrowDeadline').value)
+
+  if(!recipient||!recipient.startsWith('0x')||recipient.length!==42){ss2('escrowCreateStatus','Enter a valid recipient address','error');return}
+  if(!amt||amt<=0){ss2('escrowCreateStatus','Enter a valid amount','error');return}
+
+  try{
+    ss2('escrowCreateStatus','Sending USDC to escrow — confirm in wallet... ⏳','pending')
+    var raw=ethers.parseUnits(amt.toString(),6)
+    var gp=(await provider.getFeeData()).gasPrice
+    var usdc=new ethers.Contract(TK.USDC.address,['function transfer(address,uint256) returns(bool)'],signer)
+    var tx=await usdc.transfer(ESCROW_WALLET_ADDR,raw,{gasLimit:100000n,gasPrice:gp})
+    var rec=await tx.wait()
+
+    ss2('escrowCreateStatus','Recording escrow... ⏳','pending')
+    var apiRes=await fetch(ESCROW_API_BASE+'/deposit-confirm',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        senderAddress:walletAddress,
+        recipientAddress:recipient,
+        amount:amt,
+        description:desc,
+        deadlineDays:deadlineDays,
+        depositTxHash:rec.hash
+      })
+    })
+    var apiData=await apiRes.json()
+    if(!apiData.success){ss2('escrowCreateStatus','Deposit sent but recording failed: '+(apiData.error||'unknown error'),'error');return}
+
+    ss2('escrowCreateStatus','Escrow created ✓ '+amt+' USDC held for '+recipient.slice(0,6)+'...'+recipient.slice(-4),'success')
+    document.getElementById('escrowRecipient').value=''
+    document.getElementById('escrowAmount').value=''
+    document.getElementById('escrowDescription').value=''
+    loadEscrowUSDCBal()
+  }catch(err){
+    ss2('escrowCreateStatus','❌ '+(err?.reason||err?.shortMessage||err?.message||'Failed'),'error')
+  }
+}
+
+async function loadEscrowSent(){
+  var c=document.getElementById('escrowSentList')
+  if(!connected){c.innerHTML='<div class="wrq"><svg><use href="#i-lock"/></svg><div class="wrq-t">Wallet required</div><div class="wrq-s">Connect to view your sent escrows</div></div>';return}
+  c.innerHTML='<div class="empty">Loading...</div>'
+  try{
+    var res=await fetch(SBU+'/rest/v1/escrows?sender_address=eq.'+walletAddress.toLowerCase()+'&select=*&order=created_at.desc',{headers:SBH})
+    var rows=await res.json()
+    renderEscrowList(c,rows,'sent')
+  }catch(e){c.innerHTML='<div class="empty">Error loading escrows</div>';console.log(e)}
+}
+
+async function loadEscrowReceived(){
+  var c=document.getElementById('escrowReceivedList')
+  if(!connected){c.innerHTML='<div class="wrq"><svg><use href="#i-lock"/></svg><div class="wrq-t">Wallet required</div><div class="wrq-s">Connect to view escrows sent to you</div></div>';return}
+  c.innerHTML='<div class="empty">Loading...</div>'
+  try{
+    var res=await fetch(SBU+'/rest/v1/escrows?recipient_address=eq.'+walletAddress.toLowerCase()+'&select=*&order=created_at.desc',{headers:SBH})
+    var rows=await res.json()
+    renderEscrowList(c,rows,'received')
+  }catch(e){c.innerHTML='<div class="empty">Error loading escrows</div>';console.log(e)}
+}
+
+function renderEscrowList(container,rows,mode){
+  if(!Array.isArray(rows)||rows.length===0){
+    container.innerHTML='<div class="empty">No '+mode+' escrows yet</div>'
+    return
+  }
+  container.innerHTML=rows.map(function(e){
+    var counterparty=mode==='sent'?e.recipient_address:e.sender_address
+    var shortCp=counterparty.slice(0,6)+'...'+counterparty.slice(-4)
+    var statusColor=e.status==='released'?'success':e.status==='refunded'?'pending':e.status==='disputed'?'error':'pending'
+    var deadlineStr=new Date(e.deadline).toLocaleString()
+    var actionHtml=''
+
+    if(e.status==='pending'){
+      if(mode==='received'&&!e.recipient_fulfilled){
+        actionHtml='<button class="btnp" style="margin-top:10px" onclick="escrowMarkFulfilled('+e.id+')">Mark as Fulfilled</button>'
+      }else if(mode==='sent'&&e.recipient_fulfilled&&!e.sender_confirmed){
+        actionHtml='<button class="btnp" style="margin-top:10px" onclick="escrowMarkConfirmed('+e.id+')">Confirm &amp; Release</button>'
+      }else if(mode==='received'&&e.recipient_fulfilled){
+        actionHtml='<div class="ibox" style="margin-top:10px">Waiting for sender to confirm</div>'
+      }else if(mode==='sent'&&!e.recipient_fulfilled){
+        actionHtml='<div class="ibox" style="margin-top:10px">Waiting for recipient to fulfill their part</div>'
+      }
+    }
+
+    return '<div class="pblk">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">'
+      +'<div><div class="pblk-t">'+(e.description||'Escrow #'+e.id)+'</div><div style="font-size:.767rem;color:var(--t4)">'+(mode==='sent'?'To: ':'From: ')+shortCp+'</div></div>'
+      +'<span class="tbg '+statusColor+'">'+e.status+'</span>'
+      +'</div>'
+      +'<div class="prow"><span class="prowl">Amount</span><span class="prowv">'+e.amount+' USDC</span></div>'
+      +'<div class="prow"><span class="prowl">Deadline</span><span class="prowv" style="font-size:.767rem">'+deadlineStr+'</span></div>'
+      +'<div class="prow"><span class="prowl">Recipient fulfilled</span><span class="prowv">'+(e.recipient_fulfilled?'Yes':'No')+'</span></div>'
+      +(e.release_tx_hash?'<div class="prow"><span class="prowl">Transaction</span><a class="txil" href="'+EXP+'/tx/'+e.release_tx_hash+'" target="_blank">View ↗</a></div>':'')
+      +actionHtml
+      +'</div>'
+  }).join('')
+}
+
+async function escrowMarkFulfilled(escrowId){
+  try{
+    var res=await fetch(ESCROW_API_BASE+'/mark-fulfilled',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({escrowId:escrowId,recipientAddress:walletAddress})
+    })
+    var data=await res.json()
+    if(data.success){loadEscrowReceived()}
+    else{alert('Failed: '+(data.error||'unknown error'))}
+  }catch(e){alert('Error: '+e.message)}
+}
+
+async function escrowMarkConfirmed(escrowId){
+  if(!confirm('This will release the USDC to the recipient. Continue?'))return
+  try{
+    var res=await fetch(ESCROW_API_BASE+'/mark-confirmed',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({escrowId:escrowId,senderAddress:walletAddress})
+    })
+    var data=await res.json()
+    if(data.success){loadEscrowSent()}
+    else{alert('Failed: '+(data.error||'unknown error'))}
+  }catch(e){alert('Error: '+e.message)}
 }
 
 function ss(id,msg,type){var b=document.getElementById(id);b.textContent=msg;b.className='sbox '+type}
