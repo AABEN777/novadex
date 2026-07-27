@@ -31,7 +31,6 @@ async function releaseFunds(client, recipientAddress, amount) {
 }
 
 export default async function handler(req, res) {
-  // Optional shared secret so random internet traffic can't trigger this endpoint
   const authHeader = req.headers['authorization'];
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -43,7 +42,9 @@ export default async function handler(req, res) {
   try {
     const nowIso = new Date().toISOString();
 
-    // Find all pending escrows past their deadline
+    // IMPORTANT: only pick up escrows that are still 'pending' - disputed escrows
+    // are explicitly excluded here since they need manual resolution, not
+    // automatic release. This is the fix for the dispute loophole.
     const res1 = await fetch(
       `${SUPABASE_URL}/rest/v1/escrows?status=eq.pending&deadline=lt.${nowIso}&select=*`,
       { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
@@ -63,8 +64,15 @@ export default async function handler(req, res) {
 
     for (const escrow of expiredEscrows) {
       try {
-        if (escrow.recipient_fulfilled && !escrow.sender_disputed) {
-          // Recipient did their part, sender never responded -> auto-release to recipient
+        // Extra safety check: never auto-resolve a disputed escrow even if
+        // it somehow shows up here. Disputes must go through resolve-dispute.
+        if (escrow.sender_disputed) {
+          results.push({ id: escrow.id, action: 'skipped-disputed' });
+          continue;
+        }
+
+        if (escrow.recipient_fulfilled) {
+          // Recipient did their part, sender never responded (and never disputed) -> auto-release to recipient
           const txHash = await releaseFunds(client, escrow.recipient_address, escrow.amount);
           if (txHash) {
             await fetch(`${SUPABASE_URL}/rest/v1/escrows?id=eq.${escrow.id}`, {
@@ -78,7 +86,7 @@ export default async function handler(req, res) {
             });
             results.push({ id: escrow.id, action: 'auto-released', txHash });
           }
-        } else if (!escrow.recipient_fulfilled) {
+        } else {
           // Recipient never confirmed fulfillment -> auto-refund to sender
           const txHash = await releaseFunds(client, escrow.sender_address, escrow.amount);
           if (txHash) {
@@ -94,7 +102,6 @@ export default async function handler(req, res) {
             results.push({ id: escrow.id, action: 'auto-refunded', txHash });
           }
         }
-        // If recipient_fulfilled is true AND sender_disputed is true, leave it alone - needs manual resolution
       } catch (escrowErr) {
         results.push({ id: escrow.id, action: 'error', error: escrowErr.message });
       }
