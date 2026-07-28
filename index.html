@@ -591,6 +591,37 @@
   </div>
 </div>
 
+<!-- ADMIN DISPUTE REVIEW PAGE (access-code gated) -->
+<div class="page" id="adminPage">
+  <div class="con" style="padding-top:28px;padding-bottom:60px">
+
+    <div id="adminGate">
+      <div class="phdr">
+        <div class="phdr-t">Dispute Review</div>
+        <div class="phdr-s">Admin access required</div>
+      </div>
+      <div class="card" style="text-align:center;padding:32px 20px">
+        <div class="atile-ico" style="margin:0 auto 16px"><svg><use href="#i-lock"/></svg></div>
+        <div style="font-size:.933rem;font-weight:700;margin-bottom:6px">Restricted area</div>
+        <div style="font-size:.8rem;color:var(--t3);margin-bottom:20px;line-height:1.5">Enter your admin code to review disputed escrows.</div>
+        <div class="irow" style="justify-content:center">
+          <input type="password" id="adminCodeInput" placeholder="Admin code" style="text-align:center;letter-spacing:.3em" maxlength="12"/>
+        </div>
+        <button class="btnp" id="adminUnlockBtn">Unlock</button>
+        <div class="sbox" id="adminGateStatus"></div>
+      </div>
+    </div>
+
+    <div id="adminContent" style="display:none">
+      <div class="phdr">
+        <div class="phdr-t">Dispute Review</div>
+        <div class="phdr-s">Review evidence and resolve disputed escrows</div>
+      </div>
+      <div id="adminDisputeList" class="card"><div class="empty">Loading...</div></div>
+    </div>
+  </div>
+</div>
+
 <!-- WALLET MODAL -->
 <div class="mov" id="walletModal">
   <div class="mdl">
@@ -660,6 +691,8 @@ const SBH={'Content-Type':'application/json','apikey':SBK,'Authorization':'Beare
 
 var provider,signer,walletAddress,connected=false,totalVolume=0,priceChart=null,isDark=true,txFilter='all'
 var escrowUnlocked=false
+var adminUnlocked=false
+const ADMIN_ACCESS_CODE='2580'
 const ESCROW_ACCESS_CODE='2580'
 const ESCROW_API_BASE='https://novadex-opal.vercel.app/api'
 var discoveredWallets=[]
@@ -751,6 +784,8 @@ window.addEventListener('DOMContentLoaded',function(){
 
   // Escrow access gate
   document.getElementById('escrowUnlockBtn').addEventListener('click',unlockEscrow)
+  document.getElementById('adminUnlockBtn').addEventListener('click',unlockAdmin)
+  document.getElementById('adminCodeInput').addEventListener('keypress',function(e){if(e.key==='Enter')unlockAdmin()})
   document.getElementById('escrowCodeInput').addEventListener('keypress',function(e){if(e.key==='Enter')unlockEscrow()})
   document.getElementById('escrowCreateTab').addEventListener('click',function(){setEscrowTab('create')})
   document.getElementById('escrowSentTab').addEventListener('click',function(){setEscrowTab('sent');loadEscrowSent()})
@@ -780,7 +815,7 @@ window.addEventListener('DOMContentLoaded',function(){
   window.addEventListener('popstate',function(e){var p=(e.state&&e.state.page)||'home';showPage(p,true)})
   checkNet();buildChart('USDC-EURC');renderHistory()
   var ip=(window.location.hash||'').replace('#','')||'home'
-  var vp=['home','swap','liquidity','lending','leaderboard','history','escrow']
+  var vp=['home','swap','liquidity','lending','leaderboard','history','escrow','admin']
   if(vp.indexOf(ip)===-1)ip='home'
   showPage(ip,true)
   try{history.replaceState({page:ip},'',ip==='home'?window.location.pathname:'#'+ip)}catch(e){}
@@ -803,7 +838,7 @@ function toggleTheme(){
 }
 
 function showPage(page,skipH){
-  var pm={home:'homePage',swap:'swapPage',liquidity:'liquidityPage',lending:'lendingPage',leaderboard:'leaderboardPage',history:'historyPage',escrow:'escrowPage'}
+  var pm={home:'homePage',swap:'swapPage',liquidity:'liquidityPage',lending:'lendingPage',leaderboard:'leaderboardPage',history:'historyPage',escrow:'escrowPage',admin:'adminPage'}
   var sm={home:'sideHome',swap:'sideSwap',liquidity:'sideLiquidity',lending:'sideLending',leaderboard:'sideLeaderboard',history:'sideHistory'}
   Object.values(pm).forEach(function(id){document.getElementById(id).classList.remove('active')})
   Object.values(sm).forEach(function(id){document.getElementById(id).classList.remove('active')})
@@ -817,6 +852,7 @@ function showPage(page,skipH){
   if(page==='liquidity'&&connected){updateLiqLabels();fetchLiqBals();if(document.getElementById('liqSharePanel').style.display==='block')loadPoolShare()}
   if(page==='lending'&&connected){loadLendBal();loadPoolBal();if(document.getElementById('lendPositionPanel').style.display==='block')loadPosition();if(document.getElementById('lendRepayPanel').style.display==='block')loadRepayDetails()}
   if(page==='escrow'&&escrowUnlocked&&connected){loadEscrowUSDCBal()}
+  if(page==='admin'&&adminUnlocked){loadAdminDisputes()}
 }
 
 function refreshCurrentPageData(){
@@ -1505,6 +1541,110 @@ function unlockEscrow(){
   }
 }
 
+const ADMIN_SECRET_VALUE='novadex-admin-x9k3p7q2'
+
+function unlockAdmin(){
+  var input=document.getElementById('adminCodeInput').value
+  if(input===ADMIN_ACCESS_CODE){
+    adminUnlocked=true
+    document.getElementById('adminGate').style.display='none'
+    document.getElementById('adminContent').style.display='block'
+    loadAdminDisputes()
+  }else{
+    var b=document.getElementById('adminGateStatus')
+    b.textContent='Incorrect admin code'
+    b.className='sbox error'
+  }
+}
+
+async function loadAdminDisputes(){
+  var c=document.getElementById('adminDisputeList')
+  c.innerHTML='<div class="empty">Loading disputed escrows...</div>'
+  try{
+    var escRes=await fetch(SBU+'/rest/v1/escrows?status=eq.disputed&select=*&order=created_at.desc',{headers:SBH})
+    var escrows=await escRes.json()
+    if(!Array.isArray(escrows)||escrows.length===0){
+      c.innerHTML='<div class="empty">No disputed escrows right now</div>'
+      return
+    }
+
+    var html=''
+    for(var i=0;i<escrows.length;i++){
+      var e=escrows[i]
+      var evRes=await fetch(SBU+'/rest/v1/escrow_evidence?escrow_id=eq.'+e.id+'&select=*&order=created_at.asc',{headers:SBH})
+      var evidence=await evRes.json()
+      if(!Array.isArray(evidence))evidence=[]
+
+      var senderEv=evidence.filter(function(ev){return ev.role==='sender'})
+      var recipientEv=evidence.filter(function(ev){return ev.role==='recipient'})
+
+      html+='<div class="pblk">'
+        +'<div class="pblk-t">Escrow #'+e.id+' — '+(e.description||'No description')+'</div>'
+        +'<div class="prow"><span class="prowl">Amount</span><span class="prowv">'+e.amount+' USDC</span></div>'
+        +'<div class="prow"><span class="prowl">Sender</span><span class="prowv" style="font-size:.767rem">'+e.sender_address+'</span></div>'
+        +'<div class="prow"><span class="prowl">Recipient</span><span class="prowv" style="font-size:.767rem">'+e.recipient_address+'</span></div>'
+        +'<div style="margin-top:10px;padding:10px;background:var(--el);border-radius:var(--r)">'
+        +'<div style="font-size:.767rem;font-weight:700;color:var(--ac);margin-bottom:6px">Sender\'s evidence</div>'
+        +(senderEv.length===0?'<div style="font-size:.767rem;color:var(--t4)">No evidence submitted yet</div>':senderEv.map(function(ev){
+          return '<div style="font-size:.8rem;color:var(--t2);margin-bottom:6px">'+ev.explanation+(ev.proof_link?'<br/><a href="'+ev.proof_link+'" target="_blank" style="color:var(--ac)">'+ev.proof_link+'</a>':'')+'</div>'
+        }).join(''))
+        +'</div>'
+        +'<div style="margin-top:8px;padding:10px;background:var(--el);border-radius:var(--r)">'
+        +'<div style="font-size:.767rem;font-weight:700;color:var(--ac);margin-bottom:6px">Recipient\'s evidence</div>'
+        +(recipientEv.length===0?'<div style="font-size:.767rem;color:var(--t4)">No evidence submitted yet</div>':recipientEv.map(function(ev){
+          return '<div style="font-size:.8rem;color:var(--t2);margin-bottom:6px">'+ev.explanation+(ev.proof_link?'<br/><a href="'+ev.proof_link+'" target="_blank" style="color:var(--ac)">'+ev.proof_link+'</a>':'')+'</div>'
+        }).join(''))
+        +'</div>'
+        +'<div style="display:flex;gap:8px;margin-top:12px">'
+        +'<button class="btnp" style="margin-top:0" id="adminRelease'+e.id+'" onclick="resolveDisputeAdmin('+e.id+',\'release\')">Release to Recipient</button>'
+        +'<button class="btng" style="margin-top:0;color:var(--er);border-color:var(--erd)" id="adminRefund'+e.id+'" onclick="resolveDisputeAdmin('+e.id+',\'refund\')">Refund Sender</button>'
+        +'</div>'
+        +'<div class="sbox" id="adminStatus'+e.id+'"></div>'
+        +'</div>'
+    }
+    c.innerHTML=html
+  }catch(e){
+    c.innerHTML='<div class="empty">Error loading disputes</div>'
+    console.log(e)
+  }
+}
+
+async function resolveDisputeAdmin(escrowId,decision){
+  var label=decision==='release'?'release funds to the recipient':'refund the sender'
+  if(!window.confirm('This will '+label+' for escrow #'+escrowId+'. This cannot be undone. Continue?'))return
+
+  var releaseBtn=document.getElementById('adminRelease'+escrowId)
+  var refundBtn=document.getElementById('adminRefund'+escrowId)
+  var statusBox=document.getElementById('adminStatus'+escrowId)
+  if(releaseBtn)releaseBtn.disabled=true
+  if(refundBtn)refundBtn.disabled=true
+  if(statusBox){statusBox.textContent='Processing — this can take up to 30 seconds... ⏳';statusBox.className='sbox pending'}
+
+  try{
+    var res=await fetch(ESCROW_API_BASE+'/resolve-dispute',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':'Bearer '+ADMIN_SECRET_VALUE
+      },
+      body:JSON.stringify({escrowId:escrowId,decision:decision,resolvedBy:'admin'})
+    })
+    var data=await res.json()
+    if(data.success){
+      if(statusBox){statusBox.textContent='Resolved ✓ '+(data.txHash?data.txHash.slice(0,10)+'...':'');statusBox.className='sbox success'}
+      setTimeout(loadAdminDisputes,1500)
+    }else{
+      if(releaseBtn)releaseBtn.disabled=false
+      if(refundBtn)refundBtn.disabled=false
+      if(statusBox){statusBox.textContent='❌ '+(data.error||'Failed to resolve');statusBox.className='sbox error'}
+    }
+  }catch(e){
+    if(releaseBtn)releaseBtn.disabled=false
+    if(refundBtn)refundBtn.disabled=false
+    if(statusBox){statusBox.textContent='❌ '+e.message;statusBox.className='sbox error'}
+  }
+}
+
 function setEscrowTab(tab){
   document.getElementById('escrowCreatePanel').style.display=tab==='create'?'block':'none'
   document.getElementById('escrowSentPanel').style.display=tab==='sent'?'block':'none'
@@ -1611,11 +1751,21 @@ function renderEscrowList(container,rows,mode){
         actionHtml='<button class="btnp" style="margin-top:10px" id="escrowAction'+e.id+'" onclick="escrowMarkFulfilled('+e.id+')">Mark as Fulfilled</button>'
       }else if(mode==='sent'&&e.recipient_fulfilled&&!e.sender_confirmed){
         actionHtml='<button class="btnp" style="margin-top:10px" id="escrowAction'+e.id+'" onclick="escrowMarkConfirmed('+e.id+')">Confirm &amp; Release</button>'
+          +'<button class="btng" style="margin-top:8px;color:var(--er);border-color:var(--erd)" id="escrowDisputeBtn'+e.id+'" onclick="escrowDispute('+e.id+')">Dispute — I did not receive this</button>'
       }else if(mode==='received'&&e.recipient_fulfilled){
         actionHtml='<div class="ibox" style="margin-top:10px">Waiting for sender to confirm</div>'
       }else if(mode==='sent'&&!e.recipient_fulfilled){
         actionHtml='<div class="ibox" style="margin-top:10px">Waiting for recipient to fulfill their part</div>'
       }
+    }else if(e.status==='disputed'){
+      actionHtml='<div class="wbox" style="margin-top:10px">This escrow is disputed and frozen pending review. Submit your evidence below.</div>'
+        +'<div style="margin-top:10px">'
+        +'<textarea id="escrowEvidenceText'+e.id+'" placeholder="Describe what happened from your side..." style="width:100%;min-height:70px;background:var(--el);border:1px solid var(--bd);border-radius:var(--r);padding:10px;color:var(--tx);font-size:.8rem;font-family:inherit;resize:vertical"></textarea>'
+        +'<div style="height:8px"></div>'
+        +'<input type="text" id="escrowEvidenceLink'+e.id+'" placeholder="Proof link (optional)" style="width:100%;background:var(--el);border:1px solid var(--bd);border-radius:var(--r);padding:10px;color:var(--tx);font-size:.8rem"/>'
+        +'<button class="btnp" style="margin-top:8px" id="escrowEvidenceBtn'+e.id+'" onclick="escrowSubmitEvidence('+e.id+')">Submit Evidence</button>'
+        +'<div class="sbox" id="escrowEvidenceStatus'+e.id+'"></div>'
+        +'</div>'
     }
 
     return '<div class="pblk">'
@@ -1734,6 +1884,72 @@ async function escrowMarkConfirmed(escrowId){
     }
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent='Confirm & Release'}
+    if(statusBox){statusBox.textContent='❌ '+e.message;statusBox.className='sbox error'}
+  }
+}
+
+async function escrowDispute(escrowId){
+  if(!window.confirm('This freezes the escrow for manual review. Only dispute if you genuinely did not receive what was promised. Continue?')){return}
+  var disputeBtn=document.getElementById('escrowDisputeBtn'+escrowId)
+  var actionBtn=document.getElementById('escrowAction'+escrowId)
+  var statusBox=document.getElementById('escrowStatus'+escrowId)
+  if(disputeBtn){disputeBtn.disabled=true;disputeBtn.textContent='Filing dispute...'}
+  if(actionBtn){actionBtn.disabled=true}
+  try{
+    var res=await fetch(ESCROW_API_BASE+'/dispute-escrow',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({escrowId:escrowId,senderAddress:walletAddress})
+    })
+    var data=await res.json()
+    if(data.success){
+      if(statusBox){statusBox.textContent='Escrow disputed. Funds are frozen pending review.';statusBox.className='sbox pending'}
+      loadEscrowSent()
+      loadEscrowNotifications()
+    }else{
+      if(disputeBtn){disputeBtn.disabled=false;disputeBtn.textContent='Dispute — I did not receive this'}
+      if(actionBtn){actionBtn.disabled=false}
+      if(statusBox){statusBox.textContent='❌ '+(data.error||'Failed to dispute');statusBox.className='sbox error'}
+    }
+  }catch(e){
+    if(disputeBtn){disputeBtn.disabled=false;disputeBtn.textContent='Dispute — I did not receive this'}
+    if(actionBtn){actionBtn.disabled=false}
+    if(statusBox){statusBox.textContent='❌ '+e.message;statusBox.className='sbox error'}
+  }
+}
+
+async function escrowSubmitEvidence(escrowId){
+  var textEl=document.getElementById('escrowEvidenceText'+escrowId)
+  var linkEl=document.getElementById('escrowEvidenceLink'+escrowId)
+  var btn=document.getElementById('escrowEvidenceBtn'+escrowId)
+  var statusBox=document.getElementById('escrowEvidenceStatus'+escrowId)
+  var explanation=textEl?textEl.value.trim():''
+  var proofLink=linkEl?linkEl.value.trim():''
+
+  if(!explanation){
+    if(statusBox){statusBox.textContent='Please describe what happened before submitting';statusBox.className='sbox error'}
+    return
+  }
+
+  if(btn){btn.disabled=true;btn.textContent='Submitting...'}
+  try{
+    var res=await fetch(ESCROW_API_BASE+'/submit-evidence',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({escrowId:escrowId,submittedBy:walletAddress,explanation:explanation,proofLink:proofLink||null})
+    })
+    var data=await res.json()
+    if(data.success){
+      if(statusBox){statusBox.textContent='Evidence submitted ✓ It will be reviewed shortly.';statusBox.className='sbox success'}
+      if(btn){btn.textContent='Submitted'}
+      if(textEl)textEl.disabled=true
+      if(linkEl)linkEl.disabled=true
+    }else{
+      if(btn){btn.disabled=false;btn.textContent='Submit Evidence'}
+      if(statusBox){statusBox.textContent='❌ '+(data.error||'Failed to submit evidence');statusBox.className='sbox error'}
+    }
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Submit Evidence'}
     if(statusBox){statusBox.textContent='❌ '+e.message;statusBox.className='sbox error'}
   }
 }
