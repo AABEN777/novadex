@@ -1751,14 +1751,17 @@ function renderEscrowList(container,rows,mode){
         actionHtml='<button class="btnp" style="margin-top:10px" id="escrowAction'+e.id+'" onclick="escrowMarkFulfilled('+e.id+')">Mark as Fulfilled</button>'
       }else if(mode==='sent'&&e.recipient_fulfilled&&!e.sender_confirmed){
         actionHtml='<button class="btnp" style="margin-top:10px" id="escrowAction'+e.id+'" onclick="escrowMarkConfirmed('+e.id+')">Confirm &amp; Release</button>'
-          +'<button class="btng" style="margin-top:8px;color:var(--er);border-color:var(--erd)" id="escrowDisputeBtn'+e.id+'" onclick="escrowDispute('+e.id+')">Dispute — I did not receive this</button>'
+          +'<button class="btng" style="margin-top:8px;color:var(--er);border-color:var(--erd)" id="escrowDisputeBtn'+e.id+'" onclick="escrowDispute('+e.id+')">Dispute this payment</button>'
       }else if(mode==='received'&&e.recipient_fulfilled){
         actionHtml='<div class="ibox" style="margin-top:10px">Waiting for sender to confirm</div>'
       }else if(mode==='sent'&&!e.recipient_fulfilled){
         actionHtml='<div class="ibox" style="margin-top:10px">Waiting for recipient to fulfill their part</div>'
       }
     }else if(e.status==='disputed'){
-      actionHtml='<div class="wbox" style="margin-top:10px">This escrow is disputed and frozen pending review. Submit your evidence below.</div>'
+      var disputeMsg=mode==='received'
+        ?'The sender has disputed this payment. Submit proof that you fulfilled your part — an admin will review both sides and decide.'
+        :'You disputed this payment. Submit any proof supporting your side — an admin will review and decide.'
+      actionHtml='<div class="wbox" style="margin-top:10px">'+disputeMsg+'</div>'
         +'<div style="margin-top:10px">'
         +'<textarea id="escrowEvidenceText'+e.id+'" placeholder="Describe what happened from your side..." style="width:100%;min-height:70px;background:var(--el);border:1px solid var(--bd);border-radius:var(--r);padding:10px;color:var(--tx);font-size:.8rem;font-family:inherit;resize:vertical"></textarea>'
         +'<div style="height:8px"></div>'
@@ -1821,6 +1824,7 @@ async function loadEscrowNotifications(){
     if(!Array.isArray(received))received=[]
 
     var items=[]
+    var disputedIds=[]
     sent.forEach(function(e){
       if(e.status==='pending'&&e.recipient_fulfilled&&!e.sender_confirmed){
         items.push({id:e.id,type:'action',text:'Ready to confirm & release '+e.amount+' USDC to '+e.recipient_address.slice(0,6)+'...',time:e.recipient_fulfilled_at})
@@ -1831,6 +1835,7 @@ async function loadEscrowNotifications(){
       if(e.status==='refunded'){
         items.push({id:e.id,type:'info',text:'Refunded '+e.amount+' USDC from an expired escrow',time:e.created_at})
       }
+      if(e.status==='disputed'){disputedIds.push(e.id)}
     })
     received.forEach(function(e){
       if(e.status==='pending'&&!e.recipient_fulfilled){
@@ -1839,7 +1844,22 @@ async function loadEscrowNotifications(){
       if(e.status==='released'){
         items.push({id:e.id,type:'info',text:'Received '+e.amount+' USDC from '+e.sender_address.slice(0,6)+'...',time:e.sender_confirmed_at||e.created_at})
       }
+      if(e.status==='disputed'){disputedIds.push(e.id)}
     })
+
+    // Check whether this wallet has already submitted evidence for any disputed escrows
+    if(disputedIds.length>0){
+      var evRes=await fetch(SBU+'/rest/v1/escrow_evidence?submitted_by=eq.'+walletAddress.toLowerCase()+'&select=escrow_id',{headers:SBH})
+      var myEvidence=await evRes.json()
+      var submittedIds=Array.isArray(myEvidence)?myEvidence.map(function(ev){return ev.escrow_id}):[]
+
+      var allDisputed=sent.concat(received).filter(function(e){return e.status==='disputed'})
+      allDisputed.forEach(function(e){
+        if(submittedIds.indexOf(e.id)===-1){
+          items.push({id:e.id,type:'action',text:'This payment is disputed — submit your evidence for #'+e.id,time:e.created_at})
+        }
+      })
+    }
 
     items.sort(function(a,b){return new Date(b.time)-new Date(a.time)})
     var actionCount=items.filter(function(i){return i.type==='action'}).length
@@ -1907,12 +1927,12 @@ async function escrowDispute(escrowId){
       loadEscrowSent()
       loadEscrowNotifications()
     }else{
-      if(disputeBtn){disputeBtn.disabled=false;disputeBtn.textContent='Dispute — I did not receive this'}
+      if(disputeBtn){disputeBtn.disabled=false;disputeBtn.textContent='Dispute this payment'}
       if(actionBtn){actionBtn.disabled=false}
       if(statusBox){statusBox.textContent='❌ '+(data.error||'Failed to dispute');statusBox.className='sbox error'}
     }
   }catch(e){
-    if(disputeBtn){disputeBtn.disabled=false;disputeBtn.textContent='Dispute — I did not receive this'}
+    if(disputeBtn){disputeBtn.disabled=false;disputeBtn.textContent='Dispute this payment'}
     if(actionBtn){actionBtn.disabled=false}
     if(statusBox){statusBox.textContent='❌ '+e.message;statusBox.className='sbox error'}
   }
