@@ -2,6 +2,7 @@
   "name": "novadex",
   "version": "1.0.0",
   "dependencies": {
-    "@circle-fin/developer-controlled-wallets": "^1.0.0"
+    "@circle-fin/developer-controlled-wallets": "^1.0.0",
+    "ethers": "^6.7.0"
   }
 }
