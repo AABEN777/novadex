@@ -80,6 +80,17 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'This deposit transaction has already been recorded as an escrow' });
     }
 
+    // Basic rate limiting: cap new escrows per wallet to 10 per hour to prevent spam
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const rateCheck = await fetch(
+      `${SUPABASE_URL}/rest/v1/escrows?sender_address=eq.${senderAddress.toLowerCase()}&created_at=gt.${oneHourAgo}&select=id`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+    );
+    const rateRows = await rateCheck.json();
+    if (Array.isArray(rateRows) && rateRows.length >= 10) {
+      return res.status(429).json({ error: 'Too many escrows created recently. Please wait before creating another.' });
+    }
+
     const deadline = new Date();
     deadline.setDate(deadline.getDate() + (deadlineDays || 7));
 
