@@ -233,6 +233,7 @@
   <button class="slink" id="sideSwap"><span class="sico"><svg><use href="#i-swap"/></svg></span>Swap</button>
   <button class="slink" id="sideLiquidity"><span class="sico"><svg><use href="#i-drop"/></svg></span>Liquidity</button>
   <button class="slink" id="sideLending"><span class="sico"><svg><use href="#i-bank"/></svg></span>Lending</button>
+  <button class="slink" id="sideEscrow"><span class="sico"><svg><use href="#i-lock"/></svg></span>Escrow</button>
   <button class="slink" id="sideLeaderboard"><span class="sico"><svg><use href="#i-trophy"/></svg></span>Leaderboard</button>
   <button class="slink" id="sideHistory"><span class="sico"><svg><use href="#i-clock"/></svg></span>History</button>
   <div class="sdiv"></div>
@@ -732,6 +733,7 @@ window.addEventListener('DOMContentLoaded',function(){
   document.getElementById('sideSwap').addEventListener('click',function(){showPage('swap');closeMenu()})
   document.getElementById('sideLiquidity').addEventListener('click',function(){showPage('liquidity');closeMenu()})
   document.getElementById('sideLending').addEventListener('click',function(){showPage('lending');closeMenu()})
+  document.getElementById('sideEscrow').addEventListener('click',function(){showPage('escrow');closeMenu()})
   document.getElementById('sideLeaderboard').addEventListener('click',function(){showPage('leaderboard');closeMenu()})
   document.getElementById('sideHistory').addEventListener('click',function(){showPage('history');closeMenu()})
   document.getElementById('connectWalletBtn').addEventListener('click',function(){var wmb=document.getElementById('walletModalStatus');if(wmb){wmb.textContent='';wmb.className='sbox'};openMod('walletModal')})
@@ -839,7 +841,7 @@ function toggleTheme(){
 
 function showPage(page,skipH){
   var pm={home:'homePage',swap:'swapPage',liquidity:'liquidityPage',lending:'lendingPage',leaderboard:'leaderboardPage',history:'historyPage',escrow:'escrowPage',admin:'adminPage'}
-  var sm={home:'sideHome',swap:'sideSwap',liquidity:'sideLiquidity',lending:'sideLending',leaderboard:'sideLeaderboard',history:'sideHistory'}
+  var sm={home:'sideHome',swap:'sideSwap',liquidity:'sideLiquidity',lending:'sideLending',escrow:'sideEscrow',leaderboard:'sideLeaderboard',history:'sideHistory'}
   Object.values(pm).forEach(function(id){document.getElementById(id).classList.remove('active')})
   Object.values(sm).forEach(function(id){document.getElementById(id).classList.remove('active')})
   document.getElementById(pm[page]).classList.add('active')
@@ -851,7 +853,24 @@ function showPage(page,skipH){
   if(page==='swap'){setTimeout(function(){buildChart(document.querySelector('.ctab.active').dataset.pair)},100);if(connected)fetchBals()}
   if(page==='liquidity'&&connected){updateLiqLabels();fetchLiqBals();if(document.getElementById('liqSharePanel').style.display==='block')loadPoolShare()}
   if(page==='lending'&&connected){loadLendBal();loadPoolBal();if(document.getElementById('lendPositionPanel').style.display==='block')loadPosition();if(document.getElementById('lendRepayPanel').style.display==='block')loadRepayDetails()}
-  if(page==='escrow'&&escrowUnlocked&&connected){loadEscrowUSDCBal()}
+  if(page==='escrow'){
+    if(!escrowUnlocked){
+      escrowUnlocked=true
+      document.getElementById('escrowGate').style.display='none'
+      document.getElementById('escrowContent').style.display='block'
+      document.getElementById('escrowBellWrap').style.display='block'
+      if(localStorage.getItem('novadex_escrow_howitworks_dismissed')==='true'){
+        document.getElementById('escrowHowItWorks').style.display='none'
+      }
+    }
+    if(connected){
+      loadEscrowUSDCBal()
+      loadEscrowNotifications()
+      if(!window._escrowNotifInterval){
+        window._escrowNotifInterval=setInterval(loadEscrowNotifications,60000)
+      }
+    }
+  }
   if(page==='admin'&&adminUnlocked){loadAdminDisputes()}
 }
 
@@ -1751,7 +1770,7 @@ function renderEscrowList(container,rows,mode){
         actionHtml='<button class="btnp" style="margin-top:10px" id="escrowAction'+e.id+'" onclick="escrowMarkFulfilled('+e.id+')">Mark as Fulfilled</button>'
       }else if(mode==='sent'&&e.recipient_fulfilled&&!e.sender_confirmed){
         actionHtml='<button class="btnp" style="margin-top:10px" id="escrowAction'+e.id+'" onclick="escrowMarkConfirmed('+e.id+')">Confirm &amp; Release</button>'
-          +'<button class="btng" style="margin-top:8px;color:var(--er);border-color:var(--erd)" id="escrowDisputeBtn'+e.id+'" onclick="escrowDispute('+e.id+')">Dispute this payment</button>'
+          +'<button class="btng" style="margin-top:8px;color:var(--er);border-color:var(--erd)" id="escrowDisputeBtn'+e.id+'" onclick="escrowDispute('+e.id+')">Dispute Escrow</button>'
       }else if(mode==='received'&&e.recipient_fulfilled){
         actionHtml='<div class="ibox" style="margin-top:10px">Waiting for sender to confirm</div>'
       }else if(mode==='sent'&&!e.recipient_fulfilled){
@@ -1927,12 +1946,12 @@ async function escrowDispute(escrowId){
       loadEscrowSent()
       loadEscrowNotifications()
     }else{
-      if(disputeBtn){disputeBtn.disabled=false;disputeBtn.textContent='Dispute this payment'}
+      if(disputeBtn){disputeBtn.disabled=false;disputeBtn.textContent='Dispute Escrow'}
       if(actionBtn){actionBtn.disabled=false}
       if(statusBox){statusBox.textContent='❌ '+(data.error||'Failed to dispute');statusBox.className='sbox error'}
     }
   }catch(e){
-    if(disputeBtn){disputeBtn.disabled=false;disputeBtn.textContent='Dispute this payment'}
+    if(disputeBtn){disputeBtn.disabled=false;disputeBtn.textContent='Dispute Escrow'}
     if(actionBtn){actionBtn.disabled=false}
     if(statusBox){statusBox.textContent='❌ '+e.message;statusBox.className='sbox error'}
   }
