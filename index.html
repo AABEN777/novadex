@@ -685,7 +685,6 @@ const PRA=['function getReserves() view returns(uint256,uint256)','function tota
 const LDA=['function depositCollateral(uint256)','function withdrawCollateral(uint256)','function borrow(address,uint256)','function repayToken(address)','function repayAll()','function getLoan(address,address) view returns(uint256,uint256,uint256,bool)','function getHealthFactor(address) view returns(uint256)','function getPoolBalance(address) view returns(uint256)','function collateral(address) view returns(uint256)','function getTotalDebtUSD(address) view returns(uint256)']
 const MMA=['function memo(address,bytes,bytes32,bytes) external']
 const SR={'USDC-EURC':0.92,'EURC-USDC':1.087,'USDC-cirBTC':0.000015,'cirBTC-USDC':66000,'EURC-cirBTC':0.000014,'cirBTC-EURC':71000}
-const TXK='novadex_v4_txs'
 const SBU='https://imgknvwifcxwfftkpkyt.supabase.co'
 const SBK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImltZ2tudndpZmN4d2ZmdGtwa3l0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjU5NDIsImV4cCI6MjA5NzQ0MTk0Mn0._N-kb1FNq7PKRkP4AC6NAZjFaaqIj3Y56Ih0spz6qLM'
 const SBH={'Content-Type':'application/json','apikey':SBK,'Authorization':'Bearer '+SBK}
@@ -1155,7 +1154,7 @@ async function confirmSwap(){
     totalVolume+=ai;document.getElementById('statVol').textContent='$'+totalVolume.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})
     ss2('statusBox','Swapped '+ai+' '+ti+' → '+ao+' '+to+' | '+rc.hash.slice(0,10)+'...','success')
     document.getElementById('amountIn').value='';document.getElementById('amountOut').value=''
-    fetchBals();renderHistory();lbRecord(walletAddress,ai,0)
+    fetchBals();renderHistory();await lbRecord(walletAddress,ai,0)
   }catch(err){
     await updateTxStatus(txRowId,{status:'failed'})
     renderHistory()
@@ -1209,7 +1208,7 @@ async function addLiquidity(){
     await saveTx({type:'liquidity',action:'add',pair:pair,amount0:a0,amount1:a1,token0:pts[0],token1:pts[1],hash:rec.hash,status:'success'})
     ss('liqStatusBox','Liquidity added to '+pair+' | '+rec.hash.slice(0,10)+'...','success')
     document.getElementById('liqAmount0').value='';document.getElementById('liqAmount1').value=''
-    fetchLiqBals();renderHistory();lbRecord(walletAddress,0,a0+a1)
+    fetchLiqBals();renderHistory();await lbRecord(walletAddress,0,a0+a1)
   }catch(err){ss('liqStatusBox','❌ '+(err?.reason||err?.shortMessage||err?.message||'Failed'),'error')}
 }
 
