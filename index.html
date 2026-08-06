@@ -670,6 +670,11 @@
   </div>
 </div>
 <script>
+// Redirect visitors from the old .vercel.app URL to the new custom domain,
+// preserving the path/hash so deep links (e.g. #escrow) still work correctly
+if(window.location.hostname==='novadex-opal.vercel.app'){
+  window.location.replace('https://novaonarc.xyz'+window.location.pathname+window.location.search+window.location.hash)
+}
 const RS='0x7ae6DE7aD0E7e5C8802c9a9B4Cedf258D792e3a5'
 const RL='0xA3E49f3B007C15076ca73e71A896F5EC86C596Bf'
 const FC='0xd7EB001b35373353f0d52E1AEf9a597051034A1F'
