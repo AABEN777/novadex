@@ -1,7 +1,28 @@
+import crypto from 'crypto';
 import { initiateDeveloperControlledWalletsClient } from "@circle-fin/developer-controlled-wallets";
 
 const ESCROW_WALLET_ID = "d4e56011-550e-5b0f-90e6-73f2422df581";
 const USDC_TOKEN_ID = "ef87c8c3-85de-598a-af50-c5135eecfa74";
+
+// Verifies the short-lived token issued by /api/admin-login.
+// Replaces the old static bearer secret, which was readable in the page source.
+function verifyAdminToken(token, signingKey) {
+  if (typeof token !== 'string' || !token.includes('.')) return false;
+  const [encodedExpiry, providedSig] = token.split('.');
+  let expiry;
+  try {
+    expiry = Buffer.from(encodedExpiry, 'base64url').toString();
+  } catch {
+    return false;
+  }
+  if (!/^\d+$/.test(expiry)) return false;
+  if (Number(expiry) < Date.now()) return false;
+
+  const expectedSig = crypto.createHmac('sha256', signingKey).update(expiry).digest('base64url');
+  const a = Buffer.from(providedSig || '');
+  const b = Buffer.from(expectedSig);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
 
 async function releaseFunds(client, recipientAddress, amount) {
   const transferResponse = await client.createTransaction({
@@ -35,22 +56,19 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  const signingKey = process.env.ADMIN_SECRET;
+  if (!signingKey) return res.status(500).json({ error: 'Server is missing ADMIN_SECRET' });
+
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (!verifyAdminToken(token, signingKey)) {
+    return res.status(401).json({ error: 'Unauthorized or expired session. Please log in again.' });
   }
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  // Admin-only protection - requires the shared admin secret
-  const authHeader = req.headers['authorization'];
-  if (!process.env.ADMIN_SECRET || authHeader !== `Bearer ${process.env.ADMIN_SECRET}`) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const { escrowId, decision, resolvedBy } = req.body;
-
+  const { escrowId, decision, resolvedBy } = req.body || {};
   if (!escrowId || !decision || !['release', 'refund'].includes(decision)) {
     return res.status(400).json({ error: 'Missing or invalid fields. decision must be "release" or "refund"' });
   }
@@ -66,9 +84,7 @@ export default async function handler(req, res) {
     const rows = await checkRes.json();
     const escrow = rows && rows[0];
 
-    if (!escrow) {
-      return res.status(404).json({ error: 'Escrow not found' });
-    }
+    if (!escrow) return res.status(404).json({ error: 'Escrow not found' });
     if (escrow.status !== 'disputed') {
       return res.status(400).json({ error: 'This escrow is not currently disputed' });
     }
@@ -81,9 +97,7 @@ export default async function handler(req, res) {
     const destination = decision === 'release' ? escrow.recipient_address : escrow.sender_address;
     const txHash = await releaseFunds(client, destination, escrow.amount);
 
-    if (!txHash) {
-      return res.status(500).json({ error: 'Transfer did not complete successfully' });
-    }
+    if (!txHash) return res.status(500).json({ error: 'Transfer did not complete successfully' });
 
     const newStatus = decision === 'release' ? 'released' : 'refunded';
 
