@@ -249,7 +249,7 @@
   <div class="hero">
     <div class="hero-ey"><div class="hero-dot"></div>Live on Arc Testnet</div>
     <h1 class="hero-t">The DEX built for <em>Arc</em></h1>
-    <p class="hero-s">Instant stablecoin swaps, liquidity pools, lending and borrowing — all on Arc Testnet with real on-chain settlement.</p>
+    <p class="hero-s">Instant stablecoin swaps, liquidity pools, lending, borrowing and escrow, all on Arc Testnet with real on-chain settlement.</p>
     <div class="hero-b">
       <button class="btn-hp" id="heroSwapBtn">Open Swap</button>
       <a class="btn-hg" href="https://testnet.arcscan.app/address/0x7ae6DE7aD0E7e5C8802c9a9B4Cedf258D792e3a5" target="_blank">View Contract ↗</a>
@@ -271,6 +271,7 @@
     <div class="atile" id="cardSwap"><div class="atile-ico"><svg><use href="#i-swap"/></svg></div><div class="atile-t">Swap</div><div class="atile-d">Exchange USDC, EURC and cirBTC instantly with live on-chain quotes</div><div class="atile-a">Open →</div></div>
     <div class="atile" id="cardLiquidity"><div class="atile-ico"><svg><use href="#i-drop"/></svg></div><div class="atile-t">Liquidity</div><div class="atile-d">Deposit into pools and earn a share of 0.3% swap fees</div><div class="atile-a">Open →</div></div>
     <div class="atile" id="cardLending"><div class="atile-ico"><svg><use href="#i-bank"/></svg></div><div class="atile-t">Lending</div><div class="atile-d">Deposit USDC as collateral and borrow at 5% fixed APR</div><div class="atile-a">Open →</div></div>
+    <div class="atile" id="cardEscrow"><div class="atile-ico"><svg><use href="#i-lock"/></svg></div><div class="atile-t">Escrow</div><div class="atile-d">Programmable USDC payments that release on mutual confirmation</div><div class="atile-a">Open →</div></div>
     <div class="atile" id="cardLeaderboard"><div class="atile-ico"><svg><use href="#i-trophy"/></svg></div><div class="atile-t">Leaderboard</div><div class="atile-d">Top wallets ranked by swap volume and liquidity provided</div><div class="atile-a">Open →</div></div>
   </div>
   <div class="hfeat">
@@ -278,9 +279,9 @@
     <div class="hfeat-s">Built for Arc's stablecoin-native infrastructure from the ground up.</div>
     <div class="fgrid">
       <div class="fi"><div class="fi-ico"><svg><use href="#i-swap"/></svg></div><div class="fi-t">Sub-second settlement</div><div class="fi-d">Arc's deterministic finality confirms every swap in under one second.</div></div>
-      <div class="fi"><div class="fi-ico"><svg><use href="#i-lock"/></svg></div><div class="fi-t">Non-custodial</div><div class="fi-d">Your keys, your funds. Every transaction goes directly on-chain.</div></div>
-      <div class="fi"><div class="fi-ico"><svg><use href="#i-chart"/></svg></div><div class="fi-t">Live price charts</div><div class="fi-d">Real-time price charts for every pair built into the interface.</div></div>
-      <div class="fi"><div class="fi-ico"><svg><use href="#i-signal"/></svg></div><div class="fi-t">Network monitor</div><div class="fi-d">Live Arc Testnet health — block number, latency and status.</div></div>
+      <div class="fi"><div class="fi-ico"><svg><use href="#i-lock"/></svg></div><div class="fi-t">Non-custodial swaps</div><div class="fi-d">Your keys, your funds. Every swap goes directly on-chain.</div></div>
+      <div class="fi"><div class="fi-ico"><svg><use href="#i-chart"/></svg></div><div class="fi-t">Live pool reserves</div><div class="fi-d">Quotes read straight from on-chain pool reserves, not cached prices.</div></div>
+      <div class="fi"><div class="fi-ico"><svg><use href="#i-signal"/></svg></div><div class="fi-t">Network monitor</div><div class="fi-d">Live Arc Testnet health: block number, latency and status.</div></div>
       <div class="fi"><div class="fi-ico"><svg><use href="#i-bank"/></svg></div><div class="fi-t">Collateralized lending</div><div class="fi-d">Deposit USDC and borrow against it at a fixed 5% APR.</div></div>
       <div class="fi"><div class="fi-ico"><svg><use href="#i-trophy"/></svg></div><div class="fi-t">Live leaderboard</div><div class="fi-d">Compete on-chain. Rankings update with every swap and deposit.</div></div>
     </div>
@@ -306,7 +307,7 @@
   </div>
   <div class="hcta">
     <div class="hcta-t">Built for Arc, from day one.</div>
-    <div class="hcta-s">Non-custodial swaps, liquidity and lending — all settling on-chain in under a second.</div>
+    <div class="hcta-s">Non-custodial swaps, liquidity, lending and escrow, all settling on-chain in under a second.</div>
   </div>
   <div class="ftr">
     <div class="ftr-i">
@@ -341,7 +342,7 @@
     </div>
     <div class="card" style="margin-top:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-        <div style="font-size:.867rem;font-weight:600;color:var(--t2)">Price chart</div>
+        <div style="font-size:.867rem;font-weight:600;color:var(--t2)">Rate trend <span style="font-weight:400;color:var(--t4);font-size:.733rem">· indicative</span></div>
         <div style="display:flex;gap:4px">
           <button class="ctab active" data-pair="USDC-EURC">USDC/EURC</button>
           <button class="ctab" data-pair="USDC-cirBTC">USDC/BTC</button>
@@ -493,30 +494,10 @@
   </div>
 </div>
 
-<!-- ESCROW PAGE (access-code gated) -->
+<!-- ESCROW PAGE -->
 <div class="page" id="escrowPage">
   <div class="con" style="padding-top:28px;padding-bottom:60px">
-
-    <!-- Gate screen -->
-    <div id="escrowGate">
-      <div class="phdr">
-        <div class="phdr-t">Escrow</div>
-        <div class="phdr-s">This feature requires an access code</div>
-      </div>
-      <div class="card" style="text-align:center;padding:32px 20px">
-        <div class="atile-ico" style="margin:0 auto 16px"><svg><use href="#i-lock"/></svg></div>
-        <div style="font-size:.933rem;font-weight:700;margin-bottom:6px">Restricted feature</div>
-        <div style="font-size:.8rem;color:var(--t3);margin-bottom:20px;line-height:1.5">Escrow is currently in private testing. Enter your access code to continue.</div>
-        <div class="irow" style="justify-content:center">
-          <input type="password" id="escrowCodeInput" placeholder="Access code" style="text-align:center;letter-spacing:.3em" maxlength="12"/>
-        </div>
-        <button class="btnp" id="escrowUnlockBtn">Unlock</button>
-        <div class="sbox" id="escrowGateStatus"></div>
-      </div>
-    </div>
-
-    <!-- Real escrow UI, hidden until unlocked -->
-    <div id="escrowContent" style="display:none">
+    <div id="escrowContent">
       <div class="phdr">
         <div class="phdr-t">Escrow</div>
         <div class="phdr-s">Programmable USDC payments with mutual confirmation</div>
@@ -549,7 +530,7 @@
           </div>
           <div style="display:flex;gap:10px;align-items:flex-start">
             <div style="width:22px;height:22px;border-radius:50%;background:var(--acd);color:var(--ac);font-size:.733rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div>
-            <div style="font-size:.8rem;color:var(--t2);line-height:1.5">If a deadline passes with no response, funds auto-release or auto-refund based on what's actually happened — so neither side can be stuck</div>
+            <div style="font-size:.8rem;color:var(--t2);line-height:1.5">If a deadline passes with no response, funds auto-release or auto-refund based on what actually happened, so neither side can be stuck</div>
           </div>
         </div>
       </div>
@@ -593,7 +574,7 @@
   </div>
 </div>
 
-<!-- ADMIN DISPUTE REVIEW PAGE (access-code gated) -->
+<!-- ADMIN DISPUTE REVIEW PAGE (password gated, server-verified) -->
 <div class="page" id="adminPage">
   <div class="con" style="padding-top:28px;padding-bottom:60px">
 
@@ -605,9 +586,9 @@
       <div class="card" style="text-align:center;padding:32px 20px">
         <div class="atile-ico" style="margin:0 auto 16px"><svg><use href="#i-lock"/></svg></div>
         <div style="font-size:.933rem;font-weight:700;margin-bottom:6px">Restricted area</div>
-        <div style="font-size:.8rem;color:var(--t3);margin-bottom:20px;line-height:1.5">Enter your admin code to review disputed escrows.</div>
+        <div style="font-size:.8rem;color:var(--t3);margin-bottom:20px;line-height:1.5">Enter your admin password to review disputed escrows.</div>
         <div class="irow" style="justify-content:center">
-          <input type="password" id="adminCodeInput" placeholder="Admin code" style="text-align:center;letter-spacing:.3em" maxlength="12"/>
+          <input type="password" id="adminCodeInput" placeholder="Admin password" style="text-align:center" maxlength="64"/>
         </div>
         <button class="btnp" id="adminUnlockBtn">Unlock</button>
         <div class="sbox" id="adminGateStatus"></div>
@@ -647,6 +628,7 @@
     <div>
       <div class="cfrow"><span class="cfrl">You pay</span><span class="cfrv" id="confirmPay">—</span></div>
       <div class="cfrow"><span class="cfrl">You receive (est.)</span><span class="cfrv g" id="confirmReceive">—</span></div>
+      <div class="cfrow"><span class="cfrl">Minimum received</span><span class="cfrv" id="confirmMin">—</span></div>
       <div class="cfrow"><span class="cfrl">Rate</span><span class="cfrv" id="confirmRate">—</span></div>
       <div class="cfrow"><span class="cfrl">Slippage</span><span class="cfrv">5%</span></div>
       <div class="cfrow"><span class="cfrl">Fee</span><span class="cfrv">0.3%</span></div>
@@ -696,17 +678,15 @@ const SBK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6
 const SBH={'Content-Type':'application/json','apikey':SBK,'Authorization':'Bearer '+SBK}
 
 var provider,signer,walletAddress,connected=false,totalVolume=0,priceChart=null,isDark=true,txFilter='all'
-var escrowUnlocked=false
 var adminUnlocked=false
-const ADMIN_ACCESS_CODE='2580'
-const ESCROW_ACCESS_CODE='2580'
+// Short-lived token from /api/admin-login. No permanent secret is ever stored client-side.
+var adminToken=null
 const ESCROW_API_BASE='https://novaonarc.xyz/api'
 var discoveredWallets=[]
+// Live quote state: guards against swapping with no real on-chain quote
+var lastQuoteRaw=null,lastQuoteLive=false
 
 // EIP-6963: listen for wallet providers announcing themselves.
-// This solves the "wrong wallet connects" bug — instead of blindly grabbing
-// window.ethereum (which is just whichever wallet loaded last), we build a
-// real list of installed wallets and match the user's actual selection to it.
 window.addEventListener('eip6963:announceProvider',function(event){
   var detail=event.detail
   if(!detail||!detail.info||!detail.provider)return
@@ -730,6 +710,7 @@ window.addEventListener('DOMContentLoaded',function(){
   document.getElementById('cardSwap').addEventListener('click',function(){showPage('swap')})
   document.getElementById('cardLiquidity').addEventListener('click',function(){showPage('liquidity')})
   document.getElementById('cardLending').addEventListener('click',function(){showPage('lending')})
+  document.getElementById('cardEscrow').addEventListener('click',function(){showPage('escrow')})
   document.getElementById('cardLeaderboard').addEventListener('click',function(){showPage('leaderboard')})
   document.getElementById('themeBtn').addEventListener('click',toggleTheme)
   document.getElementById('hamburgerBtn').addEventListener('click',toggleMenu)
@@ -789,11 +770,8 @@ window.addEventListener('DOMContentLoaded',function(){
   })
   document.querySelectorAll('.ctab').forEach(function(tab){tab.addEventListener('click',function(){document.querySelectorAll('.ctab').forEach(function(t){t.classList.remove('active')});tab.classList.add('active');buildChart(tab.dataset.pair)})})
 
-  // Escrow access gate
-  document.getElementById('escrowUnlockBtn').addEventListener('click',unlockEscrow)
   document.getElementById('adminUnlockBtn').addEventListener('click',unlockAdmin)
   document.getElementById('adminCodeInput').addEventListener('keypress',function(e){if(e.key==='Enter')unlockAdmin()})
-  document.getElementById('escrowCodeInput').addEventListener('keypress',function(e){if(e.key==='Enter')unlockEscrow()})
   document.getElementById('escrowCreateTab').addEventListener('click',function(){setEscrowTab('create')})
   document.getElementById('escrowSentTab').addEventListener('click',function(){setEscrowTab('sent');loadEscrowSent()})
   document.getElementById('escrowReceivedTab').addEventListener('click',function(){setEscrowTab('received');loadEscrowReceived()})
@@ -820,6 +798,14 @@ window.addEventListener('DOMContentLoaded',function(){
   })
 
   window.addEventListener('popstate',function(e){var p=(e.state&&e.state.page)||'home';showPage(p,true)})
+
+  // Restore saved theme before anything renders
+  if(localStorage.getItem('novadex_theme')==='light'){
+    isDark=false
+    document.documentElement.setAttribute('data-theme','light')
+    document.getElementById('themeBtn').innerHTML='<svg><use href="#i-sun"/></svg>'
+  }
+
   checkNet();buildChart('USDC-EURC');renderHistory()
   var ip=(window.location.hash||'').replace('#','')||'home'
   var vp=['home','swap','liquidity','lending','leaderboard','history','escrow','admin']
@@ -841,6 +827,7 @@ function toggleTheme(){
   isDark=!isDark
   document.documentElement.setAttribute('data-theme',isDark?'dark':'light')
   document.getElementById('themeBtn').innerHTML=isDark?'<svg><use href="#i-moon"/></svg>':'<svg><use href="#i-sun"/></svg>'
+  localStorage.setItem('novadex_theme',isDark?'dark':'light')
   if(priceChart)buildChart(document.querySelector('.ctab.active').dataset.pair)
 }
 
@@ -859,14 +846,9 @@ function showPage(page,skipH){
   if(page==='liquidity'&&connected){updateLiqLabels();fetchLiqBals();if(document.getElementById('liqSharePanel').style.display==='block')loadPoolShare()}
   if(page==='lending'&&connected){loadLendBal();loadPoolBal();if(document.getElementById('lendPositionPanel').style.display==='block')loadPosition();if(document.getElementById('lendRepayPanel').style.display==='block')loadRepayDetails()}
   if(page==='escrow'){
-    if(!escrowUnlocked){
-      escrowUnlocked=true
-      document.getElementById('escrowGate').style.display='none'
-      document.getElementById('escrowContent').style.display='block'
-      document.getElementById('escrowBellWrap').style.display='block'
-      if(localStorage.getItem('novadex_escrow_howitworks_dismissed')==='true'){
-        document.getElementById('escrowHowItWorks').style.display='none'
-      }
+    document.getElementById('escrowBellWrap').style.display='block'
+    if(localStorage.getItem('novadex_escrow_howitworks_dismissed')==='true'){
+      document.getElementById('escrowHowItWorks').style.display='none'
     }
     if(connected){
       loadEscrowUSDCBal()
@@ -889,6 +871,15 @@ function refreshCurrentPageData(){
     loadLendBal();loadPoolBal()
     if(document.getElementById('lendPositionPanel').style.display==='block')loadPosition()
     if(document.getElementById('lendRepayPanel').style.display==='block')loadRepayDetails()
+  }
+  if(document.getElementById('escrowPage').classList.contains('active')){
+    loadEscrowUSDCBal()
+    loadEscrowNotifications()
+    if(document.getElementById('escrowSentPanel').style.display==='block')loadEscrowSent()
+    if(document.getElementById('escrowReceivedPanel').style.display==='block')loadEscrowReceived()
+    if(!window._escrowNotifInterval){
+      window._escrowNotifInterval=setInterval(loadEscrowNotifications,60000)
+    }
   }
 }
 
@@ -949,8 +940,6 @@ async function connectWallet(silent,walletName){
       return
     }
   }else{
-    // "Other EVM wallet" or silent reconnect: use whatever is discovered first via EIP-6963,
-    // falling back to legacy window.ethereum only if no EIP-6963 wallets announced themselves
     if(discoveredWallets.length>0){
       targetProvider=discoveredWallets[0].provider
     }else if(window.ethereum){
@@ -1013,6 +1002,10 @@ async function connectWallet(silent,walletName){
 
 function disconnectWallet(){
   connected=false;walletAddress=null;provider=null;signer=null
+  lastQuoteRaw=null;lastQuoteLive=false
+  if(window._escrowNotifInterval){clearInterval(window._escrowNotifInterval);window._escrowNotifInterval=null}
+  var bellDot=document.getElementById('escrowBellDot')
+  if(bellDot)bellDot.style.display='none'
   localStorage.removeItem('novadex_wallet_connected')
   localStorage.removeItem('novadex_wallet_name')
   document.getElementById('headerWallet').innerHTML='<button class="btnc" id="connectWalletBtn">Connect Wallet</button>'
@@ -1045,11 +1038,25 @@ async function chkBal(sym,amt){try{var t=TK[sym];if(!t)return true;var c=new eth
 async function updateQuote(){
   var amt=parseFloat(document.getElementById('amountIn').value)
   var ti=document.getElementById('tokenIn').value,to=document.getElementById('tokenOut').value
+  lastQuoteRaw=null;lastQuoteLive=false
   if(!amt||amt<=0){document.getElementById('amountOut').value='';document.getElementById('rateDisplay').textContent='—';return}
   if(connected&&provider){
-    try{var rc=new ethers.Contract(RS,RSA,readProvider);var ir=ethers.parseUnits(amt.toString(),TK[ti].decimals);var or=await rc.getAmountOut(TK[ti].address,TK[to].address,ir);var out=parseFloat(ethers.formatUnits(or,TK[to].decimals));document.getElementById('amountOut').value=out.toFixed(6);document.getElementById('rateDisplay').textContent='1 '+ti+' = '+(out/amt).toFixed(6)+' '+to;return}catch(e){console.log('quote:',e)}
+    try{
+      var rc=new ethers.Contract(RS,RSA,readProvider)
+      var ir=ethers.parseUnits(amt.toString(),TK[ti].decimals)
+      var or=await rc.getAmountOut(TK[ti].address,TK[to].address,ir)
+      var out=parseFloat(ethers.formatUnits(or,TK[to].decimals))
+      lastQuoteRaw=or
+      lastQuoteLive=true
+      document.getElementById('amountOut').value=out.toFixed(6)
+      document.getElementById('rateDisplay').textContent='1 '+ti+' = '+(out/amt).toFixed(6)+' '+to
+      return
+    }catch(e){console.log('quote:',e)}
   }
-  var rate=SR[ti+'-'+to]||1;document.getElementById('amountOut').value=(amt*rate).toFixed(6);document.getElementById('rateDisplay').textContent='1 '+ti+' = '+rate+' '+to
+  // Indicative fallback only. lastQuoteLive stays false so the swap is blocked.
+  var rate=SR[ti+'-'+to]||1
+  document.getElementById('amountOut').value=(amt*rate).toFixed(6)
+  document.getElementById('rateDisplay').textContent='1 '+ti+' = '+rate+' '+to+' (indicative)'
 }
 function onTC(){updateQuote();if(connected)fetchBals()}
 function flipTokens(){var ti=document.getElementById('tokenIn'),to=document.getElementById('tokenOut');var tmp=ti.value;ti.value=to.value;to.value=tmp;document.getElementById('amountIn').value='';document.getElementById('amountOut').value='';onTC()}
@@ -1058,11 +1065,21 @@ async function initiateSwap(){
   var amt=document.getElementById('amountIn').value,ti=document.getElementById('tokenIn').value,to=document.getElementById('tokenOut').value
   if(!amt||parseFloat(amt)<=0){ss2('statusBox','Enter an amount','error');return}
   if(!connected){ss2('statusBox','Connect your wallet first','error');openMod('walletModal');return}
+  if(ti===to){ss2('statusBox','Choose two different tokens','error');return}
+  // Refresh the quote right before confirming so we never trade on a stale number
+  await updateQuote()
+  if(!lastQuoteLive||!lastQuoteRaw||lastQuoteRaw===0n){
+    ss2('statusBox','Could not get a live on-chain quote for this pair. Please try again in a moment.','error')
+    return
+  }
   var ok=await chkBal(ti,parseFloat(amt));if(!ok){ss2('statusBox','Insufficient '+ti+' balance','error');return}
   var ai=parseFloat(amt),ao=parseFloat(document.getElementById('amountOut').value)||0
+  var minRaw=(lastQuoteRaw*95n)/100n
+  var minOut=parseFloat(ethers.formatUnits(minRaw,TK[to].decimals))
   document.getElementById('confirmText').textContent=ai+' '+ti+' → '+ao+' '+to
   document.getElementById('confirmPay').textContent=ai+' '+ti
   document.getElementById('confirmReceive').textContent=ao+' '+to
+  document.getElementById('confirmMin').textContent=minOut.toFixed(6)+' '+to
   document.getElementById('confirmRate').textContent='1 '+ti+' = '+(ai>0?(ao/ai).toFixed(6):'—')+' '+to
   openMod('confirmModal')
 }
@@ -1090,11 +1107,8 @@ async function sendWithRetry(sendFn,maxRetries){
   throw lastErr
 }
 
-// Fallback for wallets (e.g. Zerion) whose own RPC relay unreliably rejects
-// eth_sendRawTransaction. Instead of asking the wallet to sign AND broadcast,
-// we ask it to only sign, then broadcast the already-signed transaction
-// ourselves directly through Arc's official RPC — bypassing the wallet's relay
-// for the send step entirely.
+// Fallback for wallets whose own RPC relay unreliably rejects eth_sendRawTransaction.
+// The wallet only signs; we broadcast the signed transaction ourselves via Arc's RPC.
 async function sendViaDirectBroadcast(contract,method,args,overrides){
   var callArgs=args.concat([overrides])
   var populated=await contract[method].populateTransaction.apply(null,callArgs)
@@ -1117,11 +1131,18 @@ async function confirmSwap(){
   closeMod('confirmModal')
   var ti=document.getElementById('tokenIn').value,to=document.getElementById('tokenOut').value
   var ai=parseFloat(document.getElementById('amountIn').value),ao=parseFloat(document.getElementById('amountOut').value)
+  if(!lastQuoteLive||!lastQuoteRaw||lastQuoteRaw===0n){
+    ss2('statusBox','No live quote available. Please try again.','error')
+    btn.disabled=false;btn.textContent='Confirm'
+    return
+  }
   var txRowId=await saveTx({type:'swap',hash:null,tokenIn:ti,tokenOut:to,amountIn:ai,amountOut:ao,status:'pending'})
   try{
     var net=await provider.getNetwork();if(Number(net.chainId.toString())!==ARC_ID){ss2('statusBox','Wrong network','error');btn.disabled=false;btn.textContent='Confirm';return}
-    var ia=TK[ti].address,oa=TK[to].address,id=TK[ti].decimals,od=TK[to].decimals
-    var ir=ethers.parseUnits(ai.toString(),id),mo=ethers.parseUnits((ao*0.95).toFixed(od),od)
+    var ia=TK[ti].address,oa=TK[to].address,id=TK[ti].decimals
+    var ir=ethers.parseUnits(ai.toString(),id)
+    // Minimum out derived from the raw on-chain quote, not a re-parsed float
+    var mo=(lastQuoteRaw*95n)/100n
     var gp=(await provider.getFeeData()).gasPrice
     ss2('statusBox','Step 1/2: Approving '+ti+'... ⏳','pending')
     var tok=new ethers.Contract(ia,E20,signer);var al=await tok.allowance(walletAddress,RS)
@@ -1129,29 +1150,14 @@ async function confirmSwap(){
     ss2('statusBox','Step 2/2: Confirm swap in wallet... ⏳','pending')
     var router=new ethers.Contract(RS,RSA,signer),mc=new ethers.Contract(MC,MMA,signer)
     var mid=ethers.encodeBytes32String('NovaDEXSwap'),md=ethers.toUtf8Bytes('NovaDEX:'+ti+'->'+to)
+    var swapData=router.interface.encodeFunctionData('swap',[ia,oa,ir,mo,walletAddress])
     var stx
-    var swapDataFinal,usedFlippedDirection=false
     try{
-      swapDataFinal=router.interface.encodeFunctionData('swap',[ia,oa,ir,mo,walletAddress])
-      stx=await sendWithRetry(function(){return mc.memo(RS,swapDataFinal,mid,md,{gasLimit:600000n,gasPrice:gp})})
-    }
-    catch(fe){
-      if(to==='cirBTC'||ti==='cirBTC'){
-        var ot=new ethers.Contract(oa,E20,signer);var oal=await ot.allowance(walletAddress,RS)
-        if(oal<mo)await ot.approve(RS,mo,{gasLimit:100000n,gasPrice:gp})
-        swapDataFinal=router.interface.encodeFunctionData('swap',[oa,ia,mo,ir,walletAddress])
-        usedFlippedDirection=true
-        try{
-          stx=await sendWithRetry(function(){return mc.memo(RS,swapDataFinal,mid,md,{gasLimit:600000n,gasPrice:gp})})
-        }catch(fe2){
-          if(isNetworkBroadcastError(fe2)){
-            ss2('statusBox','Wallet relay unreliable — trying direct broadcast to Arc... ⏳','pending')
-            stx=await sendViaDirectBroadcast(mc,'memo',[RS,swapDataFinal,mid,md],{gasLimit:600000n,gasPrice:gp})
-          }else{throw fe2}
-        }
-      }else if(isNetworkBroadcastError(fe)){
+      stx=await sendWithRetry(function(){return mc.memo(RS,swapData,mid,md,{gasLimit:600000n,gasPrice:gp})})
+    }catch(fe){
+      if(isNetworkBroadcastError(fe)){
         ss2('statusBox','Wallet relay unreliable — trying direct broadcast to Arc... ⏳','pending')
-        stx=await sendViaDirectBroadcast(mc,'memo',[RS,swapDataFinal,mid,md],{gasLimit:600000n,gasPrice:gp})
+        stx=await sendViaDirectBroadcast(mc,'memo',[RS,swapData,mid,md],{gasLimit:600000n,gasPrice:gp})
       }else{throw fe}
     }
     ss2('statusBox','Confirming on-chain... ⏳','pending')
@@ -1160,6 +1166,7 @@ async function confirmSwap(){
     totalVolume+=ai;document.getElementById('statVol').textContent='$'+totalVolume.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})
     ss2('statusBox','Swapped '+ai+' '+ti+' → '+ao+' '+to+' | '+rc.hash.slice(0,10)+'...','success')
     document.getElementById('amountIn').value='';document.getElementById('amountOut').value=''
+    lastQuoteRaw=null;lastQuoteLive=false
     fetchBals();renderHistory();await lbRecord(walletAddress,ai,0)
   }catch(err){
     await updateTxStatus(txRowId,{status:'failed'})
@@ -1183,7 +1190,7 @@ function setLiqTab(tab){
   document.getElementById(m[tab]).classList.add('active')
 }
 function updateLiqLabels(){var p=document.getElementById('addPoolSelect').value.split('-');document.getElementById('addToken0Label').textContent=p[0]+' amount';document.getElementById('addToken1Label').textContent=p[1]+' amount';if(connected)fetchLiqBals()}
-async function fetchLiqBals(){var p=document.getElementById('addPoolSelect').value.split('-');var [b0,b1]=await Promise.all([getBal(p[0]),getBal(p[1])]);document.getElementById('liqBal0').textContent=b0+' '+p[0];document.getElementById('liqBal1').textContent=b1+' '+p[1]}
+async function fetchLiqBals(){var p=document.getElementById('addPoolSelect').value.split('-');var b0=await getBal(p[0]);document.getElementById('liqBal0').textContent=b0+' '+p[0];var b1=await getBal(p[1]);document.getElementById('liqBal1').textContent=b1+' '+p[1]}
 
 async function addLiquidity(){
   if(!connected){ss('liqStatusBox','Connect your wallet first','error');return}
@@ -1233,13 +1240,15 @@ async function loadPoolShare(){
         var pa=await fc.getPair(TK[p.t0].address,TK[p.t1].address)
         if(!pa||pa==='0x0000000000000000000000000000000000000000')continue
         var pc=new ethers.Contract(pa,PRA,readProvider)
-        var [res,ts]=await Promise.all([pc.getReserves(),pc.totalSupply()])
+        var res=await pc.getReserves()
+        var ts=await pc.totalSupply()
         var r0=parseFloat(ethers.formatUnits(res[0],TK[p.t0].decimals)).toFixed(4)
         var r1=parseFloat(ethers.formatUnits(res[1],TK[p.t1].decimals)).toFixed(6)
         var uc=ltxs.filter(function(t){return t.pair===p.t0+'-'+p.t1||t.pair===p.t1+'-'+p.t0})
-        var ua0=uc.reduce(function(s,t){return s+(t.token0===p.t0?t.amount0:t.amount1)},0)
-        var ua1=uc.reduce(function(s,t){return s+(t.token1===p.t1?t.amount1:t.amount0)},0)
-        var est=ts>0n?(ua0/parseFloat(r0)*100).toFixed(3):'0'
+        var ua0=uc.reduce(function(s,t){var v=(t.token0===p.t0?t.amount0:t.amount1);return s+(Number(v)||0)},0)
+        var ua1=uc.reduce(function(s,t){var v=(t.token1===p.t1?t.amount1:t.amount0);return s+(Number(v)||0)},0)
+        var poolR0=parseFloat(r0)
+        var est=(ts>0n&&poolR0>0)?(ua0/poolR0*100).toFixed(3):'0'
         html+='<div class="pblk"><div class="pblk-t">'+p.n+'</div>'
           +'<div class="prow"><span class="prowl">Pool '+p.t0+'</span><span class="prowv">'+r0+'</span></div>'
           +'<div class="prow"><span class="prowl">Pool '+p.t1+'</span><span class="prowv">'+r1+'</span></div>'
@@ -1468,26 +1477,24 @@ async function saveTx(tx){
       headers:Object.assign({},SBH,{'Prefer':'return=representation'}),
       body:JSON.stringify(row)
     })
+    if(!res.ok)return null
     var data=await res.json()
-    console.log('saveTx response:',res.status,data)
-    if(!res.ok){console.log('saveTx FAILED:',data);return null}
     return (data&&data[0])?data[0].id:null
-  }catch(e){console.log('saveTx error:',e);return null}
+  }catch(e){return null}
 }
 
 async function updateTxStatus(rowId,updates){
-  if(!rowId){console.log('updateTxStatus: no rowId, skipping update. This means saveTx likely failed silently.');return}
+  if(!rowId)return
   try{
     var patch={}
     if(updates.hash!==undefined)patch.tx_hash=updates.hash
     if(updates.status!==undefined)patch.status=updates.status
-    var res=await fetch(SBU+'/rest/v1/transaction_history?id=eq.'+rowId,{
+    await fetch(SBU+'/rest/v1/transaction_history?id=eq.'+rowId,{
       method:'PATCH',
       headers:SBH,
       body:JSON.stringify(patch)
     })
-    console.log('updateTxStatus response:',res.status,'for rowId:',rowId,'patch:',patch)
-  }catch(e){console.log('updateTxStatus error:',e)}
+  }catch(e){}
 }
 
 async function loadTxs(){
@@ -1512,7 +1519,6 @@ async function renderHistory(){
   if(!connected){c.innerHTML='<div class="wrq"><svg><use href="#i-lock"/></svg><div class="wrq-t">Wallet required</div><div class="wrq-s">Connect to view your history</div></div>';return}
   c.innerHTML='<div class="empty">Loading your history...</div>'
   var txs=await loadTxs()
-  var validFilters=['all','swap','liquidity','lending']
   var fh2='<div class="trow"><button class="tfbtn'+(txFilter==='all'?' active':'')+'" data-f="all">All</button><button class="tfbtn'+(txFilter==='swap'?' active':'')+'" data-f="swap">Swaps</button><button class="tfbtn'+(txFilter==='liquidity'?' active':'')+'" data-f="liquidity">Liquidity</button><button class="tfbtn'+(txFilter==='lending'?' active':'')+'" data-f="lending">Lending</button></div>'
   var ft=txFilter==='all'?txs:txs.filter(function(t){return t.type===txFilter})
   if(ft.length===0){c.innerHTML=fh2+'<div class="empty"><svg><use href="#i-clock"/></svg><div>'+(txFilter==='all'?'No activity yet. Make a swap to get started.':'No '+txFilter+' transactions yet.')+'</div></div>'}
@@ -1540,45 +1546,50 @@ async function renderHistory(){
   c.querySelectorAll('.tfbtn').forEach(function(btn){btn.addEventListener('click',function(){txFilter=btn.dataset.f;renderHistory()})})
 }
 
-// ── ESCROW ────────────────────────────────────────────────────
-function unlockEscrow(){
-  var input=document.getElementById('escrowCodeInput').value
-  if(input===ESCROW_ACCESS_CODE){
-    escrowUnlocked=true
-    document.getElementById('escrowGate').style.display='none'
-    document.getElementById('escrowContent').style.display='block'
-    document.getElementById('escrowBellWrap').style.display='block'
-    if(localStorage.getItem('novadex_escrow_howitworks_dismissed')==='true'){
-      document.getElementById('escrowHowItWorks').style.display='none'
+// ── ADMIN ─────────────────────────────────────────────────────
+// Exchanges the admin password for a short-lived server-signed token.
+async function unlockAdmin(){
+  var input=document.getElementById('adminCodeInput').value
+  var b=document.getElementById('adminGateStatus')
+  var btn=document.getElementById('adminUnlockBtn')
+  if(!input){b.textContent='Enter your admin password';b.className='sbox error';return}
+  if(btn){btn.disabled=true;btn.textContent='Signing in...'}
+  b.textContent='Verifying...';b.className='sbox pending'
+  try{
+    var res=await fetch(ESCROW_API_BASE+'/admin-login',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({password:input})
+    })
+    var data=await res.json()
+    if(data.success&&data.token){
+      adminToken=data.token
+      adminUnlocked=true
+      document.getElementById('adminCodeInput').value=''
+      document.getElementById('adminGate').style.display='none'
+      document.getElementById('adminContent').style.display='block'
+      b.textContent='';b.className='sbox'
+      loadAdminDisputes()
+    }else{
+      b.textContent=data.error||'Incorrect password'
+      b.className='sbox error'
     }
-    if(connected){
-      loadEscrowUSDCBal()
-      loadEscrowNotifications()
-      if(!window._escrowNotifInterval){
-        window._escrowNotifInterval=setInterval(loadEscrowNotifications,60000)
-      }
-    }
-  }else{
-    var b=document.getElementById('escrowGateStatus')
-    b.textContent='Incorrect access code'
+  }catch(e){
+    b.textContent='Login failed: '+e.message
     b.className='sbox error'
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='Unlock'}
   }
 }
 
-const ADMIN_SECRET_VALUE='novadex-admin-x9k3p7q2'
-
-function unlockAdmin(){
-  var input=document.getElementById('adminCodeInput').value
-  if(input===ADMIN_ACCESS_CODE){
-    adminUnlocked=true
-    document.getElementById('adminGate').style.display='none'
-    document.getElementById('adminContent').style.display='block'
-    loadAdminDisputes()
-  }else{
-    var b=document.getElementById('adminGateStatus')
-    b.textContent='Incorrect admin code'
-    b.className='sbox error'
-  }
+function adminSessionExpired(){
+  adminToken=null
+  adminUnlocked=false
+  document.getElementById('adminGate').style.display='block'
+  document.getElementById('adminContent').style.display='none'
+  var gb=document.getElementById('adminGateStatus')
+  gb.textContent='Session expired. Please log in again.'
+  gb.className='sbox error'
 }
 
 async function loadAdminDisputes(){
@@ -1603,18 +1614,18 @@ async function loadAdminDisputes(){
       var recipientEv=evidence.filter(function(ev){return ev.role==='recipient'})
 
       html+='<div class="pblk">'
-        +'<div class="pblk-t">Escrow #'+e.id+' — '+(e.description||'No description')+'</div>'
+        +'<div class="pblk-t">Escrow #'+e.id+' · '+(e.description||'No description')+'</div>'
         +'<div class="prow"><span class="prowl">Amount</span><span class="prowv">'+e.amount+' USDC</span></div>'
         +'<div class="prow"><span class="prowl">Sender</span><span class="prowv" style="font-size:.767rem">'+e.sender_address+'</span></div>'
         +'<div class="prow"><span class="prowl">Recipient</span><span class="prowv" style="font-size:.767rem">'+e.recipient_address+'</span></div>'
         +'<div style="margin-top:10px;padding:10px;background:var(--el);border-radius:var(--r)">'
-        +'<div style="font-size:.767rem;font-weight:700;color:var(--ac);margin-bottom:6px">Sender\'s evidence</div>'
+        +'<div style="font-size:.767rem;font-weight:700;color:var(--ac);margin-bottom:6px">Sender evidence</div>'
         +(senderEv.length===0?'<div style="font-size:.767rem;color:var(--t4)">No evidence submitted yet</div>':senderEv.map(function(ev){
           return '<div style="font-size:.8rem;color:var(--t2);margin-bottom:6px">'+ev.explanation+(ev.proof_link?'<br/><a href="'+ev.proof_link+'" target="_blank" style="color:var(--ac)">'+ev.proof_link+'</a>':'')+'</div>'
         }).join(''))
         +'</div>'
         +'<div style="margin-top:8px;padding:10px;background:var(--el);border-radius:var(--r)">'
-        +'<div style="font-size:.767rem;font-weight:700;color:var(--ac);margin-bottom:6px">Recipient\'s evidence</div>'
+        +'<div style="font-size:.767rem;font-weight:700;color:var(--ac);margin-bottom:6px">Recipient evidence</div>'
         +(recipientEv.length===0?'<div style="font-size:.767rem;color:var(--t4)">No evidence submitted yet</div>':recipientEv.map(function(ev){
           return '<div style="font-size:.8rem;color:var(--t2);margin-bottom:6px">'+ev.explanation+(ev.proof_link?'<br/><a href="'+ev.proof_link+'" target="_blank" style="color:var(--ac)">'+ev.proof_link+'</a>':'')+'</div>'
         }).join(''))
@@ -1634,6 +1645,7 @@ async function loadAdminDisputes(){
 }
 
 async function resolveDisputeAdmin(escrowId,decision){
+  if(!adminToken){adminSessionExpired();return}
   var label=decision==='release'?'release funds to the recipient':'refund the sender'
   if(!window.confirm('This will '+label+' for escrow #'+escrowId+'. This cannot be undone. Continue?'))return
 
@@ -1642,14 +1654,14 @@ async function resolveDisputeAdmin(escrowId,decision){
   var statusBox=document.getElementById('adminStatus'+escrowId)
   if(releaseBtn)releaseBtn.disabled=true
   if(refundBtn)refundBtn.disabled=true
-  if(statusBox){statusBox.textContent='Processing — this can take up to 30 seconds... ⏳';statusBox.className='sbox pending'}
+  if(statusBox){statusBox.textContent='Processing, this can take up to 30 seconds... ⏳';statusBox.className='sbox pending'}
 
   try{
     var res=await fetch(ESCROW_API_BASE+'/resolve-dispute',{
       method:'POST',
       headers:{
         'Content-Type':'application/json',
-        'Authorization':'Bearer '+ADMIN_SECRET_VALUE
+        'Authorization':'Bearer '+adminToken
       },
       body:JSON.stringify({escrowId:escrowId,decision:decision,resolvedBy:'admin'})
     })
@@ -1660,6 +1672,7 @@ async function resolveDisputeAdmin(escrowId,decision){
     }else{
       if(releaseBtn)releaseBtn.disabled=false
       if(refundBtn)refundBtn.disabled=false
+      if(res.status===401){adminSessionExpired();return}
       if(statusBox){statusBox.textContent='❌ '+(data.error||'Failed to resolve');statusBox.className='sbox error'}
     }
   }catch(e){
@@ -1669,10 +1682,12 @@ async function resolveDisputeAdmin(escrowId,decision){
   }
 }
 
+// ── ESCROW ────────────────────────────────────────────────────
 function setEscrowTab(tab){
   document.getElementById('escrowCreatePanel').style.display=tab==='create'?'block':'none'
   document.getElementById('escrowSentPanel').style.display=tab==='sent'?'block':'none'
   document.getElementById('escrowReceivedPanel').style.display=tab==='received'?'block':'none'
+  document.getElementById('escrowHowItWorks').style.display=(tab==='create'&&localStorage.getItem('novadex_escrow_howitworks_dismissed')!=='true')?'block':'none'
   ;['escrowCreateTab','escrowSentTab','escrowReceivedTab'].forEach(function(id){document.getElementById(id).classList.remove('active')})
   var m={create:'escrowCreateTab',sent:'escrowSentTab',received:'escrowReceivedTab'}
   document.getElementById(m[tab]).classList.add('active')
@@ -1694,8 +1709,13 @@ async function createEscrow(){
   var deadlineDays=parseInt(document.getElementById('escrowDeadline').value)
 
   if(!recipient||!recipient.startsWith('0x')||recipient.length!==42){ss2('escrowCreateStatus','Enter a valid recipient address','error');return}
+  if(!/^0x[0-9a-fA-F]{40}$/.test(recipient)){ss2('escrowCreateStatus','That does not look like a valid address','error');return}
+  if(recipient.toLowerCase()===walletAddress.toLowerCase()){ss2('escrowCreateStatus','You cannot create an escrow to your own wallet','error');return}
+  if(recipient.toLowerCase()===ESCROW_WALLET_ADDR.toLowerCase()){ss2('escrowCreateStatus','Recipient cannot be the escrow wallet itself','error');return}
   if(!amt||amt<=0){ss2('escrowCreateStatus','Enter a valid amount','error');return}
 
+  var btn=document.getElementById('escrowCreateBtn')
+  if(btn){btn.disabled=true;btn.textContent='Processing...'}
   try{
     ss2('escrowCreateStatus','Sending USDC to escrow — confirm in wallet... ⏳','pending')
     var raw=ethers.parseUnits(amt.toString(),6)
@@ -1718,15 +1738,18 @@ async function createEscrow(){
       })
     })
     var apiData=await apiRes.json()
-    if(!apiData.success){ss2('escrowCreateStatus','Deposit sent but recording failed: '+(apiData.error||'unknown error'),'error');return}
+    if(!apiData.success){ss2('escrowCreateStatus','Deposit sent but recording failed: '+(apiData.error||'unknown error')+'. Keep this transaction hash: '+rec.hash,'error');return}
 
     ss2('escrowCreateStatus','Escrow created ✓ '+amt+' USDC held for '+recipient.slice(0,6)+'...'+recipient.slice(-4),'success')
     document.getElementById('escrowRecipient').value=''
     document.getElementById('escrowAmount').value=''
     document.getElementById('escrowDescription').value=''
     loadEscrowUSDCBal()
+    loadEscrowNotifications()
   }catch(err){
     ss2('escrowCreateStatus','❌ '+(err?.reason||err?.shortMessage||err?.message||'Failed'),'error')
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='Deposit to Escrow'}
   }
 }
 
@@ -1764,7 +1787,7 @@ function renderEscrowList(container,rows,mode){
       pending:{cls:'pending',icon:'#i-clock',label:'Pending'},
       released:{cls:'success',icon:'#i-check',label:'Released'},
       refunded:{cls:'pending',icon:'#i-clock',label:'Refunded'},
-      disputed:{cls:'error',icon:'#i-lock',label:'Disputed'}
+      disputed:{cls:'failed',icon:'#i-lock',label:'Disputed'}
     }
     var sm=statusMeta[e.status]||statusMeta.pending
     var deadlineStr=new Date(e.deadline).toLocaleString()
@@ -1783,8 +1806,8 @@ function renderEscrowList(container,rows,mode){
       }
     }else if(e.status==='disputed'){
       var disputeMsg=mode==='received'
-        ?'The sender has disputed this payment. Submit proof that you fulfilled your part — an admin will review both sides and decide.'
-        :'You disputed this payment. Submit any proof supporting your side — an admin will review and decide.'
+        ?'The sender has disputed this payment. Submit proof that you fulfilled your part. An admin will review both sides and decide.'
+        :'You disputed this payment. Submit any proof supporting your side. An admin will review and decide.'
       actionHtml='<div class="wbox" style="margin-top:10px">'+disputeMsg+'</div>'
         +'<div style="margin-top:10px">'
         +'<textarea id="escrowEvidenceText'+e.id+'" placeholder="Describe what happened from your side..." style="width:100%;min-height:70px;background:var(--el);border:1px solid var(--bd);border-radius:var(--r);padding:10px;color:var(--tx);font-size:.8rem;font-family:inherit;resize:vertical"></textarea>'
@@ -1836,22 +1859,20 @@ async function escrowMarkFulfilled(escrowId){
 }
 
 async function loadEscrowNotifications(){
-  if(!connected||!escrowUnlocked)return
+  if(!connected||!walletAddress)return
   try{
-    var [sentRes,receivedRes]=await Promise.all([
-      fetch(SBU+'/rest/v1/escrows?sender_address=eq.'+walletAddress.toLowerCase()+'&select=*&order=created_at.desc',{headers:SBH}),
-      fetch(SBU+'/rest/v1/escrows?recipient_address=eq.'+walletAddress.toLowerCase()+'&select=*&order=created_at.desc',{headers:SBH})
-    ])
+    var sentRes=await fetch(SBU+'/rest/v1/escrows?sender_address=eq.'+walletAddress.toLowerCase()+'&select=*&order=created_at.desc',{headers:SBH})
     var sent=await sentRes.json()
+    var receivedRes=await fetch(SBU+'/rest/v1/escrows?recipient_address=eq.'+walletAddress.toLowerCase()+'&select=*&order=created_at.desc',{headers:SBH})
     var received=await receivedRes.json()
     if(!Array.isArray(sent))sent=[]
     if(!Array.isArray(received))received=[]
 
     var items=[]
-    var disputedIds=[]
+    var hasDisputed=false
     sent.forEach(function(e){
       if(e.status==='pending'&&e.recipient_fulfilled&&!e.sender_confirmed){
-        items.push({id:e.id,type:'action',text:'Ready to confirm & release '+e.amount+' USDC to '+e.recipient_address.slice(0,6)+'...',time:e.recipient_fulfilled_at})
+        items.push({id:e.id,type:'action',text:'Ready to confirm and release '+e.amount+' USDC to '+e.recipient_address.slice(0,6)+'...',time:e.recipient_fulfilled_at})
       }
       if(e.status==='released'&&e.sender_confirmed){
         items.push({id:e.id,type:'info',text:'Released '+e.amount+' USDC to '+e.recipient_address.slice(0,6)+'...',time:e.sender_confirmed_at})
@@ -1859,7 +1880,7 @@ async function loadEscrowNotifications(){
       if(e.status==='refunded'){
         items.push({id:e.id,type:'info',text:'Refunded '+e.amount+' USDC from an expired escrow',time:e.created_at})
       }
-      if(e.status==='disputed'){disputedIds.push(e.id)}
+      if(e.status==='disputed')hasDisputed=true
     })
     received.forEach(function(e){
       if(e.status==='pending'&&!e.recipient_fulfilled){
@@ -1868,19 +1889,17 @@ async function loadEscrowNotifications(){
       if(e.status==='released'){
         items.push({id:e.id,type:'info',text:'Received '+e.amount+' USDC from '+e.sender_address.slice(0,6)+'...',time:e.sender_confirmed_at||e.created_at})
       }
-      if(e.status==='disputed'){disputedIds.push(e.id)}
+      if(e.status==='disputed')hasDisputed=true
     })
 
-    // Check whether this wallet has already submitted evidence for any disputed escrows
-    if(disputedIds.length>0){
+    if(hasDisputed){
       var evRes=await fetch(SBU+'/rest/v1/escrow_evidence?submitted_by=eq.'+walletAddress.toLowerCase()+'&select=escrow_id',{headers:SBH})
       var myEvidence=await evRes.json()
       var submittedIds=Array.isArray(myEvidence)?myEvidence.map(function(ev){return ev.escrow_id}):[]
-
       var allDisputed=sent.concat(received).filter(function(e){return e.status==='disputed'})
       allDisputed.forEach(function(e){
         if(submittedIds.indexOf(e.id)===-1){
-          items.push({id:e.id,type:'action',text:'This payment is disputed — submit your evidence for #'+e.id,time:e.created_at})
+          items.push({id:e.id,type:'action',text:'Escrow #'+e.id+' is disputed. Submit your evidence.',time:e.created_at})
         }
       })
     }
@@ -1888,9 +1907,11 @@ async function loadEscrowNotifications(){
     items.sort(function(a,b){return new Date(b.time)-new Date(a.time)})
     var actionCount=items.filter(function(i){return i.type==='action'}).length
 
-    document.getElementById('escrowBellDot').style.display=actionCount>0?'block':'none'
+    var dot=document.getElementById('escrowBellDot')
+    if(dot)dot.style.display=actionCount>0?'block':'none'
 
     var listEl=document.getElementById('escrowBellList')
+    if(!listEl)return
     if(items.length===0){
       listEl.innerHTML='<div class="empty" style="padding:20px">No updates yet</div>'
     }else{
@@ -1910,7 +1931,7 @@ async function escrowMarkConfirmed(escrowId){
   var btn=document.getElementById('escrowAction'+escrowId)
   var statusBox=document.getElementById('escrowStatus'+escrowId)
   if(btn){btn.disabled=true;btn.textContent='Releasing funds...'}
-  if(statusBox){statusBox.textContent='Releasing USDC to recipient — this can take up to 30 seconds... ⏳';statusBox.className='sbox pending'}
+  if(statusBox){statusBox.textContent='Releasing USDC to recipient, this can take up to 30 seconds... ⏳';statusBox.className='sbox pending'}
   try{
     var res=await fetch(ESCROW_API_BASE+'/mark-confirmed',{
       method:'POST',
@@ -1988,6 +2009,7 @@ async function escrowSubmitEvidence(escrowId){
       if(btn){btn.textContent='Submitted'}
       if(textEl)textEl.disabled=true
       if(linkEl)linkEl.disabled=true
+      loadEscrowNotifications()
     }else{
       if(btn){btn.disabled=false;btn.textContent='Submit Evidence'}
       if(statusBox){statusBox.textContent='❌ '+(data.error||'Failed to submit evidence');statusBox.className='sbox error'}
@@ -1998,7 +2020,7 @@ async function escrowSubmitEvidence(escrowId){
   }
 }
 
-function ss(id,msg,type){var b=document.getElementById(id);b.textContent=msg;b.className='sbox '+type}
+function ss(id,msg,type){var b=document.getElementById(id);if(b){b.textContent=msg;b.className='sbox '+type}}
 function ss2(id,msg,type){var b=document.getElementById(id);if(b){b.textContent=msg;b.className='sbox '+type}}
 </script>
 </body>
