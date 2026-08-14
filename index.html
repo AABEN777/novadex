@@ -103,6 +103,13 @@ input[type=number]{-moz-appearance:textfield}
 .mitem.danger:hover{color:var(--rose)}
 .mitem.danger:hover svg{color:var(--rose)}
 
+/* wrong-network banner */
+.netbanner{display:none;position:fixed;top:var(--nav-h);left:0;right:0;z-index:95;align-items:center;gap:12px;padding:11px 20px;background:var(--amd);border-bottom:1px solid var(--amm);backdrop-filter:blur(16px)}
+.netbanner-t{flex:1;font-size:.8125rem;color:var(--am);font-weight:500;line-height:1.4}
+.netbanner-b{height:32px;padding:0 14px;border-radius:var(--rs);background:var(--am);color:#0E1116;font-size:.8125rem;font-weight:600;white-space:nowrap;flex-shrink:0}
+.netbanner-b:disabled{opacity:.6;cursor:not-allowed}
+body.has-banner main{padding-top:calc(var(--nav-h) + 54px)}
+
 /* mobile bottom tabs */
 .tabbar{display:none;position:fixed;bottom:0;left:0;right:0;height:58px;background:color-mix(in srgb,var(--ink) 92%,transparent);backdrop-filter:blur(20px);border-top:1px solid var(--bd);z-index:100;padding-bottom:env(safe-area-inset-bottom)}
 .tabbar-in{display:flex;height:58px}
@@ -341,6 +348,9 @@ textarea.inp{resize:vertical;min-height:78px;line-height:1.5}
   .nav{padding:0 12px;gap:10px}
   .navtools{gap:6px}
   .acctaddr{font-size:.75rem}
+  .netbanner{padding:10px 14px;gap:10px}
+  .netbanner-t{font-size:.75rem}
+  body.has-banner main{padding-top:calc(var(--nav-h) + 62px)}
   .wrap,.wrap-w{padding:20px 14px 32px}
   .amt{font-size:1.5rem}
   .foot{padding-bottom:20px}
@@ -397,6 +407,11 @@ textarea.inp{resize:vertical;min-height:78px;line-height:1.5}
     <button class="icob" id="hamburgerBtn" aria-label="More" style="display:none"><svg><use href="#i-more"/></svg></button>
   </div>
 </nav>
+
+<div class="netbanner" id="netBanner">
+  <span class="netbanner-t">Your wallet is not on Arc Testnet. NovaDEX cannot read balances or trade until you switch.</span>
+  <button class="netbanner-b" id="netBannerBtn">Switch to Arc</button>
+</div>
 
 <div class="tabbar">
   <div class="tabbar-in">
@@ -938,6 +953,7 @@ window.addEventListener('DOMContentLoaded',function(){
   on('moreHistory','click',function(){closeM('moreModal');go('history')})
   on('moreAbout','click',function(){closeM('moreModal');go('about')})
 
+  on('netBannerBtn','click',switchToArc)
   on('themeBtn','click',toggleTheme)
   on('connectWalletBtn','click',openWalletPicker)
   on('closeWalletBtn','click',function(){closeM('walletModal')})
@@ -947,7 +963,11 @@ window.addEventListener('DOMContentLoaded',function(){
   on('netRefreshBtn','click',checkNet)
   on('closeNetBtn','click',function(){closeM('netModal')})
   on('closeBellBtn','click',function(){closeM('escrowBellPanel')})
-  on('escrowBellBtn','click',function(){openM('escrowBellPanel');loadEscrowNotifications()})
+  on('escrowBellBtn','click',function(){
+    openM('escrowBellPanel')
+    if(connected)loadEscrowNotifications()
+    else $('escrowBellList').innerHTML='<div class="blank" style="border:none;padding:26px 0"><div class="blank-s">Connect your wallet to see escrow updates.</div></div>'
+  })
   ;['walletModal','confirmModal','netModal','moreModal','escrowBellPanel'].forEach(function(id){
     on(id,'click',function(e){if(e.target.id===id)closeM(id)})
   })
@@ -1158,38 +1178,131 @@ async function connectWallet(silent,walletName){
   return connectWithProvider(target,walletName,silent)
 }
 
+function sameChain(a,b){return String(a||'').toLowerCase()===String(b||'').toLowerCase()}
+
+function chainErrCode(e){
+  if(!e)return null
+  if(e.code!=null)return e.code
+  if(e.data&&e.data.originalError&&e.data.originalError.code!=null)return e.data.originalError.code
+  var s='';try{s=JSON.stringify(e)}catch(x){s=String(e)}
+  if(s.indexOf('4902')!==-1)return 4902
+  return null
+}
+
+// Adds Arc to the wallet. Tries the true native precision first; MetaMask
+// rejects anything other than 18 for nativeCurrency.decimals, so fall back
+// to 18 rather than leave the user adding the network by hand.
+async function addArcChain(target){
+  var base={chainId:ARC_HEX,chainName:'Arc Testnet',rpcUrls:[RPC],blockExplorerUrls:[EXP]}
+  var tries=[6,18]
+  for(var i=0;i<tries.length;i++){
+    try{
+      await target.request({method:'wallet_addEthereumChain',params:[Object.assign({},base,{nativeCurrency:{name:'USDC',symbol:'USDC',decimals:tries[i]}})]})
+      return true
+    }catch(e){
+      var code=chainErrCode(e)
+      if(code===4001)throw e            // user rejected, stop asking
+      if(code===-32002)throw e          // a request is already open in the wallet
+    }
+  }
+  return false
+}
+
+// Puts the wallet on Arc automatically. Returns true only once confirmed.
+async function ensureArcNetwork(target,onStatus){
+  var cid=null
+  try{cid=await target.request({method:'eth_chainId'})}catch(e){}
+  if(sameChain(cid,ARC_HEX))return true
+
+  if(onStatus)onStatus('Switching to Arc Testnet…')
+  try{
+    await target.request({method:'wallet_switchEthereumChain',params:[{chainId:ARC_HEX}]})
+  }catch(se){
+    var code=chainErrCode(se)
+    if(code===4001)throw se
+    if(code===-32002){
+      if(onStatus)onStatus('Check your wallet, a network request is already open.')
+      throw se
+    }
+    // 4902 means unknown chain. Some wallets report it differently, so try adding regardless.
+    if(onStatus)onStatus('Adding Arc Testnet to your wallet…')
+    await addArcChain(target)
+    // Adding does not always switch, so ask again.
+    try{await target.request({method:'wallet_switchEthereumChain',params:[{chainId:ARC_HEX}]})}catch(e2){
+      if(chainErrCode(e2)===4001)throw e2
+    }
+  }
+
+  // Confirm it actually landed, allowing a beat for the wallet to settle.
+  for(var i=0;i<6;i++){
+    await new Promise(function(r){setTimeout(r,250)})
+    var now=null
+    try{now=await target.request({method:'eth_chainId'})}catch(e){}
+    if(sameChain(now,ARC_HEX))return true
+  }
+  return false
+}
+
+function showNetworkBanner(show){
+  var b=$('netBanner')
+  if(b)b.style.display=show?'flex':'none'
+  document.body.classList.toggle('has-banner',!!show)
+}
+
+async function switchToArc(){
+  var t=window._activeProvider
+  if(!t){openWalletPicker();return}
+  var btn=$('netBannerBtn')
+  if(btn){btn.disabled=true;btn.textContent='Switching…'}
+  try{
+    var ok=await ensureArcNetwork(t)
+    if(ok){showNetworkBanner(false);fetchBals();updateQuote();refreshCurrentPageData()}
+  }catch(e){}
+  finally{if(btn){btn.disabled=false;btn.textContent='Switch to Arc'}}
+}
+
+async function verifyChain(){
+  var t=window._activeProvider
+  if(!t||!connected)return
+  var cid=null
+  try{cid=await t.request({method:'eth_chainId'})}catch(e){}
+  showNetworkBanner(!sameChain(cid,ARC_HEX))
+}
+
 async function connectWithProvider(target,walletName,silent){
   if(!silent)msg('walletModalStatus','Waiting for your wallet…','wait')
   try{
     await target.request({method:'eth_requestAccounts'})
-    var cid=null
-    try{cid=await target.request({method:'eth_chainId'})}catch(e){}
-    if(cid!==ARC_HEX){
-      if(!silent)msg('walletModalStatus','Switch to Arc Testnet in your wallet…','wait')
-      try{await target.request({method:'wallet_switchEthereumChain',params:[{chainId:ARC_HEX}]})}
-      catch(se){
-        if(se.code===4902){
-          try{await target.request({method:'wallet_addEthereumChain',params:[{chainId:ARC_HEX,chainName:'Arc Testnet',nativeCurrency:{name:'USDC',symbol:'USDC',decimals:6},rpcUrls:[RPC],blockExplorerUrls:[EXP]}]})}catch(ae){}
-        }
+    window._activeProvider=target
+
+    var onArc=false
+    try{
+      onArc=await ensureArcNetwork(target,function(t){if(!silent)msg('walletModalStatus',t,'wait')})
+    }catch(ne){
+      if(chainErrCode(ne)===4001){
+        if(!silent)msg('walletModalStatus','You declined the network switch. NovaDEX only works on Arc Testnet.','err')
+        return
       }
     }
-    await new Promise(function(r){setTimeout(r,500)})
+
     provider=new ethers.BrowserProvider(target)
     signer=await provider.getSigner()
     walletAddress=await signer.getAddress()
     connected=true
     renderAccount()
+    showNetworkBanner(!onArc)
     localStorage.setItem('novadex_wallet_connected','true')
     if(walletName&&walletName!=='other')localStorage.setItem('novadex_wallet_name',walletName)
     if(!silent)closeM('walletModal')
-    if(target.on){
+    if(target.on&&!target._ndBound){
+      target._ndBound=true
       target.on('accountsChanged',function(a){a&&a.length?connectWithProvider(target,walletName,true):disconnectWallet()})
-      target.on('chainChanged',function(){location.reload()})
+      target.on('chainChanged',function(){verifyChain();fetchBals();updateQuote();refreshCurrentPageData()})
     }
     fetchBals();updateQuote();renderHistory();refreshCurrentPageData()
     if($('leaderboardPage').classList.contains('on'))renderLeaderboard()
   }catch(err){
-    if(!silent)msg('walletModalStatus',err&&err.code===4001?'Connection request rejected.':'Could not connect: '+(err.message||err),'err')
+    if(!silent)msg('walletModalStatus',chainErrCode(err)===4001?'Connection request rejected.':'Could not connect: '+(err.message||err),'err')
   }
 }
 
@@ -1207,7 +1320,10 @@ function renderAccount(){
    +'<button class="mitem danger" id="miDisconnect"><svg><use href="#i-power"/></svg>Disconnect</button>'
    +'</div></div>'
   on('acctBtn','click',function(e){e.stopPropagation();$('acctWrap').classList.toggle('open')})
-  document.addEventListener('click',function(){var a=$('acctWrap');if(a)a.classList.remove('open')})
+  if(!window._acctCloserBound){
+    window._acctCloserBound=true
+    document.addEventListener('click',function(){var a=$('acctWrap');if(a)a.classList.remove('open')})
+  }
   on('miCopy','click',function(){
     navigator.clipboard.writeText(walletAddress)
     var b=$('miCopy');b.innerHTML='<svg><use href="#i-check"/></svg>Copied'
@@ -1220,9 +1336,11 @@ function renderAccount(){
 
 function disconnectWallet(){
   connected=false;walletAddress=null;provider=null;signer=null
+  window._activeProvider=null;showNetworkBanner(false)
   lastQuoteRaw=null;lastQuoteLive=false
   if(window._nt){clearInterval(window._nt);window._nt=null}
   var d=$('escrowBellDot');if(d)d.style.display='none'
+  var bw=$('escrowBellWrap');if(bw)bw.style.display='none'
   localStorage.removeItem('novadex_wallet_connected');localStorage.removeItem('novadex_wallet_name')
   $('headerWallet').innerHTML='<button class="btn-connect" id="connectWalletBtn"><span class="lbl-lg">Connect wallet</span><span class="lbl-sm">Connect</span></button>'
   on('connectWalletBtn','click',openWalletPicker)
@@ -1374,7 +1492,20 @@ async function confirmSwap(){
   var rowId=await saveTx({type:'swap',hash:null,tokenIn:ti,tokenOut:to,amountIn:ai,amountOut:ao,status:'pending'})
   try{
     var net=await provider.getNetwork()
-    if(Number(net.chainId.toString())!==ARC_ID){ss('statusBox','Your wallet is on the wrong network. Switch to Arc Testnet.','error');btn.disabled=false;btn.textContent='Confirm swap';return}
+    if(Number(net.chainId.toString())!==ARC_ID){
+      ss('statusBox','Wrong network. Switching you to Arc Testnet…','pending')
+      var switched=false
+      try{switched=await ensureArcNetwork(window._activeProvider)}catch(e){}
+      if(!switched){
+        await updateTxStatus(rowId,{status:'failed'})
+        renderHistory()
+        ss('statusBox','Could not switch to Arc Testnet. Change network in your wallet and try again.','error')
+        btn.disabled=false;btn.textContent='Confirm swap';return
+      }
+      provider=new ethers.BrowserProvider(window._activeProvider)
+      signer=await provider.getSigner()
+      showNetworkBanner(false)
+    }
     var ia=TK[ti].address,oa=TK[to].address
     var ir=ethers.parseUnits(ai.toString(),TK[ti].decimals)
     var mo=(lastQuoteRaw*95n)/100n
@@ -1824,7 +1955,7 @@ function renderEscrowList(c,rows,mode){
   }
   c.innerHTML=rows.map(function(e){
     var other=mode==='sent'?e.recipient_address:e.sender_address
-    var S={pending:['wait','Awaiting'],released:['ok','Settled'],refunded:['mute','Refunded'],disputed:['err','Disputed']}
+    var S={pending:['wait','Awaiting'],processing:['wait','Settling'],released:['ok','Settled'],refunded:['mute','Refunded'],disputed:['err','Disputed']}
     var st=S[e.status]||S.pending
     var act=''
     if(e.status==='pending'){
@@ -1974,6 +2105,14 @@ function adminSessionExpired(){
   $('adminContent').style.display='none'
   msg('adminGateStatus','Your session expired. Sign in again.','err')
 }
+function evidenceHtml(list,role){
+  var r=list.filter(function(x){return x.role===role})
+  if(!r.length)return '<div style="font-size:.8125rem;color:var(--t4)">Nothing submitted yet</div>'
+  return r.map(function(x){
+    return '<div style="font-size:.8125rem;color:var(--t2);line-height:1.55">'+x.explanation+(x.proof_link?'<br/><a href="'+x.proof_link+'" target="_blank" rel="noopener" style="color:var(--am)">'+x.proof_link+'</a>':'')+'</div>'
+  }).join('')
+}
+
 async function loadAdminDisputes(){
   var c=$('adminDisputeList')
   c.innerHTML='<div class="blank">Loading</div>'
@@ -1985,18 +2124,13 @@ async function loadAdminDisputes(){
       var e=rows[i]
       var ev=await(await fetch(SBU+'/rest/v1/escrow_evidence?escrow_id=eq.'+e.id+'&select=*&order=created_at.asc',{headers:SBH})).json()
       if(!Array.isArray(ev))ev=[]
-      function side(role){
-        var r=ev.filter(function(x){return x.role===role})
-        if(!r.length)return '<div style="font-size:.8125rem;color:var(--t4)">Nothing submitted yet</div>'
-        return r.map(function(x){return '<div style="font-size:.8125rem;color:var(--t2);line-height:1.55">'+x.explanation+(x.proof_link?'<br/><a href="'+x.proof_link+'" target="_blank" rel="noopener" style="color:var(--am)">'+x.proof_link+'</a>':'')+'</div>'}).join('')
-      }
       html+='<div class="card" style="margin-bottom:10px">'
        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px"><div><div style="font-size:.9375rem;font-weight:600">'+(e.description||'Escrow #'+e.id)+'</div><div style="font-size:.75rem;color:var(--t4);margin-top:2px">Escrow #'+e.id+'</div></div><span class="pill err">Disputed</span></div>'
        +'<div class="drow"><span class="drow-l">Amount</span><span class="drow-v mono">'+e.amount+' USDC</span></div>'
        +'<div class="drow"><span class="drow-l">Sender</span><span class="drow-v mono" style="font-size:.75rem">'+shortAddr(e.sender_address)+'</span></div>'
        +'<div class="drow"><span class="drow-l">Recipient</span><span class="drow-v mono" style="font-size:.75rem">'+shortAddr(e.recipient_address)+'</span></div>'
-       +'<div style="margin-top:12px;padding:12px;border-radius:var(--r);background:var(--el)"><div class="eyebrow" style="margin-bottom:7px">Sender says</div>'+side('sender')+'</div>'
-       +'<div style="margin-top:8px;padding:12px;border-radius:var(--r);background:var(--el)"><div class="eyebrow" style="margin-bottom:7px">Recipient says</div>'+side('recipient')+'</div>'
+       +'<div style="margin-top:12px;padding:12px;border-radius:var(--r);background:var(--el)"><div class="eyebrow" style="margin-bottom:7px">Sender says</div>'+evidenceHtml(ev,'sender')+'</div>'
+       +'<div style="margin-top:8px;padding:12px;border-radius:var(--r);background:var(--el)"><div class="eyebrow" style="margin-bottom:7px">Recipient says</div>'+evidenceHtml(ev,'recipient')+'</div>'
        +'<button class="btn-main" id="adminRelease'+e.id+'" onclick="resolveDisputeAdmin('+e.id+',\'release\')">Settle to recipient</button>'
        +'<button class="btn-2" id="adminRefund'+e.id+'" onclick="resolveDisputeAdmin('+e.id+',\'refund\')" style="color:var(--rose);border-color:var(--rose)">Refund the sender</button>'
        +'<div class="msg" id="adminStatus'+e.id+'"></div></div>'
