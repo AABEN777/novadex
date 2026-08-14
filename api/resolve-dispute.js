@@ -51,6 +51,36 @@ async function releaseFunds(client, recipientAddress, amount) {
   return currentState === 'COMPLETE' ? txHash : null;
 }
 
+
+// Atomically claims an escrow before any funds move. The PATCH only matches
+// rows still in `fromStatus`, so if a cron run or another request already took
+// it, we get zero rows back and stop. Without this, two callers can both pass a
+// status check and pay out twice.
+async function claimEscrow(url, key, id, fromStatus) {
+  const res = await fetch(`${url}/rest/v1/escrows?id=eq.${id}&status=eq.${fromStatus}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': key,
+      'Authorization': `Bearer ${key}`,
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify({ status: 'processing' })
+  });
+  const rows = await res.json();
+  return Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
+}
+
+async function releaseClaim(url, key, id, backTo) {
+  try {
+    await fetch(`${url}/rest/v1/escrows?id=eq.${id}&status=eq.processing`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'apikey': key, 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify({ status: backTo })
+    });
+  } catch (e) {}
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -89,6 +119,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'This escrow is not currently disputed' });
     }
 
+    const claimed = await claimEscrow(SUPABASE_URL, SUPABASE_KEY, escrowId, 'disputed');
+    if (!claimed) {
+      return res.status(409).json({ error: 'This dispute is already being settled. Refresh in a moment.' });
+    }
+
     const client = initiateDeveloperControlledWalletsClient({
       apiKey: process.env.CIRCLE_API_KEY,
       entitySecret: process.env.CIRCLE_ENTITY_SECRET,
@@ -97,7 +132,10 @@ export default async function handler(req, res) {
     const destination = decision === 'release' ? escrow.recipient_address : escrow.sender_address;
     const txHash = await releaseFunds(client, destination, escrow.amount);
 
-    if (!txHash) return res.status(500).json({ error: 'Transfer did not complete successfully' });
+    if (!txHash) {
+      await releaseClaim(SUPABASE_URL, SUPABASE_KEY, escrowId, 'disputed');
+      return res.status(500).json({ error: 'Transfer did not complete successfully' });
+    }
 
     const newStatus = decision === 'release' ? 'released' : 'refunded';
 
@@ -118,6 +156,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, decision, txHash });
   } catch (err) {
+    await releaseClaim(SUPABASE_URL, SUPABASE_KEY, escrowId, 'disputed');
     return res.status(500).json({ error: err.message });
   }
 }

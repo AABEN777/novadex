@@ -3,6 +3,36 @@ import { initiateDeveloperControlledWalletsClient } from "@circle-fin/developer-
 const ESCROW_WALLET_ID = "d4e56011-550e-5b0f-90e6-73f2422df581";
 const USDC_TOKEN_ID = "ef87c8c3-85de-598a-af50-c5135eecfa74";
 
+
+// Atomically claims an escrow before any funds move. The PATCH only matches
+// rows still in `fromStatus`, so if a cron run or another request already took
+// it, we get zero rows back and stop. Without this, two callers can both pass a
+// status check and pay out twice.
+async function claimEscrow(url, key, id, fromStatus) {
+  const res = await fetch(`${url}/rest/v1/escrows?id=eq.${id}&status=eq.${fromStatus}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': key,
+      'Authorization': `Bearer ${key}`,
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify({ status: 'processing' })
+  });
+  const rows = await res.json();
+  return Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
+}
+
+async function releaseClaim(url, key, id, backTo) {
+  try {
+    await fetch(`${url}/rest/v1/escrows?id=eq.${id}&status=eq.processing`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'apikey': key, 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify({ status: backTo })
+    });
+  } catch (e) {}
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -47,6 +77,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Recipient has not marked their part as fulfilled yet' });
     }
 
+    const claimed = await claimEscrow(SUPABASE_URL, SUPABASE_KEY, escrowId, 'pending');
+    if (!claimed) {
+      return res.status(409).json({ error: 'This escrow is already being settled. Refresh in a moment.' });
+    }
+
     // Release USDC from the Circle escrow wallet to the recipient
     const client = initiateDeveloperControlledWalletsClient({
       apiKey: process.env.CIRCLE_API_KEY,
@@ -63,7 +98,8 @@ export default async function handler(req, res) {
 
     const transactionId = transferResponse.data?.id;
     if (!transactionId) {
-      return res.status(500).json({ error: 'Circle transaction creation failed', details: transferResponse.data, fullResponse: JSON.stringify(transferResponse) });
+      await releaseClaim(SUPABASE_URL, SUPABASE_KEY, escrowId, 'pending');
+      return res.status(500).json({ error: 'Circle transaction creation failed', details: transferResponse.data });
     }
 
     let currentState = transferResponse.data?.state ?? '';
@@ -80,6 +116,7 @@ export default async function handler(req, res) {
     }
 
     if (currentState !== 'COMPLETE') {
+      await releaseClaim(SUPABASE_URL, SUPABASE_KEY, escrowId, 'pending');
       return res.status(500).json({ error: `Transfer did not complete, ended in state: ${currentState}` });
     }
 
@@ -101,6 +138,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, txHash });
   } catch (err) {
+    await releaseClaim(SUPABASE_URL, SUPABASE_KEY, escrowId, 'pending');
     console.log('mark-confirmed error:', err);
     return res.status(500).json({
       error: err.message,

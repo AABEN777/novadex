@@ -30,6 +30,36 @@ async function releaseFunds(client, recipientAddress, amount) {
   return currentState === 'COMPLETE' ? txHash : null;
 }
 
+
+// Atomically claims an escrow before any funds move. The PATCH only matches
+// rows still in `fromStatus`, so if a cron run or another request already took
+// it, we get zero rows back and stop. Without this, two callers can both pass a
+// status check and pay out twice.
+async function claimEscrow(url, key, id, fromStatus) {
+  const res = await fetch(`${url}/rest/v1/escrows?id=eq.${id}&status=eq.${fromStatus}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': key,
+      'Authorization': `Bearer ${key}`,
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify({ status: 'processing' })
+  });
+  const rows = await res.json();
+  return Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
+}
+
+async function releaseClaim(url, key, id, backTo) {
+  try {
+    await fetch(`${url}/rest/v1/escrows?id=eq.${id}&status=eq.processing`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'apikey': key, 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify({ status: backTo })
+    });
+  } catch (e) {}
+}
+
 export default async function handler(req, res) {
   const authHeader = req.headers['authorization'];
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -64,10 +94,16 @@ export default async function handler(req, res) {
 
     for (const escrow of expiredEscrows) {
       try {
-        // Extra safety check: never auto-resolve a disputed escrow even if
-        // it somehow shows up here. Disputes must go through resolve-dispute.
+        // Never auto-resolve a disputed escrow. Disputes go through resolve-dispute.
         if (escrow.sender_disputed) {
           results.push({ id: escrow.id, action: 'skipped-disputed' });
+          continue;
+        }
+
+        // Claim it first so a user action in flight cannot also pay out.
+        const claimed = await claimEscrow(SUPABASE_URL, SUPABASE_KEY, escrow.id, 'pending');
+        if (!claimed) {
+          results.push({ id: escrow.id, action: 'skipped-locked' });
           continue;
         }
 
@@ -85,6 +121,9 @@ export default async function handler(req, res) {
               body: JSON.stringify({ status: 'released', release_tx_hash: txHash })
             });
             results.push({ id: escrow.id, action: 'auto-released', txHash });
+          } else {
+            await releaseClaim(SUPABASE_URL, SUPABASE_KEY, escrow.id, 'pending');
+            results.push({ id: escrow.id, action: 'release-failed' });
           }
         } else {
           // Recipient never confirmed fulfillment -> auto-refund to sender
@@ -100,9 +139,13 @@ export default async function handler(req, res) {
               body: JSON.stringify({ status: 'refunded', release_tx_hash: txHash })
             });
             results.push({ id: escrow.id, action: 'auto-refunded', txHash });
+          } else {
+            await releaseClaim(SUPABASE_URL, SUPABASE_KEY, escrow.id, 'pending');
+            results.push({ id: escrow.id, action: 'refund-failed' });
           }
         }
       } catch (escrowErr) {
+        await releaseClaim(SUPABASE_URL, SUPABASE_KEY, escrow.id, 'pending');
         results.push({ id: escrow.id, action: 'error', error: escrowErr.message });
       }
     }
