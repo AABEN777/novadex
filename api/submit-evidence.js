@@ -21,8 +21,9 @@ export default async function handler(req, res) {
   const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
   try {
+    // escrowId is now the on-chain id. Look the row up by chain_id.
     const checkRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/escrows?id=eq.${escrowId}&select=*`,
+      `${SUPABASE_URL}/rest/v1/escrows?chain_id=eq.${escrowId}&select=*`,
       { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
     );
     const rows = await checkRes.json();
@@ -39,9 +40,6 @@ export default async function handler(req, res) {
 
     if (!role) {
       return res.status(403).json({ error: 'You are not a party to this escrow' });
-    }
-    if (escrow.status !== 'disputed') {
-      return res.status(400).json({ error: 'This escrow is not currently disputed' });
     }
 
     const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/escrow_evidence`, {
