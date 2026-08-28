@@ -725,13 +725,10 @@ textarea.inp{resize:vertical;min-height:78px;line-height:1.5}
 <div class="page" id="adminPage">
   <div class="wrap">
     <div id="adminGate">
-      <div class="phead"><div class="phead-t serif">Dispute review</div><div class="phead-s">Restricted</div></div>
+      <div class="phead"><div class="phead-t serif">Dispute review</div><div class="phead-s">Arbitrator only</div></div>
       <div class="card">
-        <div class="fld">
-          <div class="fld-l"><span>Admin password</span></div>
-          <input class="inp" type="password" id="adminCodeInput" placeholder="••••••••" maxlength="64"/>
-        </div>
-        <button class="btn-main" id="adminUnlockBtn">Sign in</button>
+        <div class="note" style="margin-top:0;margin-bottom:14px">Dispute resolution is enforced by the contract. Connect the arbitrator wallet to continue.</div>
+        <button class="btn-main" id="adminUnlockBtn">Verify wallet</button>
         <div class="msg" id="adminGateStatus"></div>
       </div>
     </div>
@@ -888,10 +885,25 @@ const SBU='https://imgknvwifcxwfftkpkyt.supabase.co'
 const SBK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImltZ2tudndpZmN4d2ZmdGtwa3l0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjU5NDIsImV4cCI6MjA5NzQ0MTk0Mn0._N-kb1FNq7PKRkP4AC6NAZjFaaqIj3Y56Ih0spz6qLM'
 const SBH={'Content-Type':'application/json','apikey':SBK,'Authorization':'Bearer '+SBK}
 const API='https://novaonarc.xyz/api'
-const ESCROW_WALLET_ADDR='0x2c0cf9ea8f19eb05a4051f5c27b0d18dd6cc2e3c'
+const EC='0x76D4694De06Bb3A3CDf39207FE27eD8A39EC1202'
+const EABI=[
+ 'function createEscrow(address recipient,address token,uint256 amount,uint64 duration,bytes32 descriptionHash) returns (uint256)',
+ 'function markDelivered(uint256 id)',
+ 'function confirmAndRelease(uint256 id)',
+ 'function cancel(uint256 id)',
+ 'function dispute(uint256 id)',
+ 'function settle(uint256 id)',
+ 'function resolveDispute(uint256 id,uint256 toRecipient)',
+ 'function arbitrator() view returns (address)',
+ 'function isSettleable(uint256 id) view returns (bool)',
+ 'function getEscrow(uint256 id) view returns (tuple(address sender,address recipient,address token,uint256 amount,uint64 deadline,uint64 deliveredAt,bytes32 descriptionHash,uint8 status))',
+ 'event EscrowCreated(uint256 indexed id,address indexed sender,address indexed recipient,address token,uint256 amount,uint64 deadline,bytes32 descriptionHash)'
+]
+// 0 None 1 Funded 2 Delivered 3 Released 4 Refunded 5 Disputed 6 Resolved
+const ST={0:'none',1:'funded',2:'delivered',3:'released',4:'refunded',5:'disputed',6:'resolved'}
 
 var provider,signer,walletAddress,connected=false,priceChart=null,isDark=true,txFilter='all'
-var adminUnlocked=false,adminToken=null
+var adminUnlocked=false
 var discoveredWallets=[],lastQuoteRaw=null,lastQuoteLive=false
 
 const MARK={
@@ -1013,7 +1025,6 @@ window.addEventListener('DOMContentLoaded',function(){
     try{await fetch(SBU+'/rest/v1/transaction_history?wallet_address=eq.'+walletAddress.toLowerCase(),{method:'DELETE',headers:SBH});renderHistory()}catch(e){}
   })
   on('adminUnlockBtn','click',unlockAdmin)
-  on('adminCodeInput','keypress',function(e){if(e.key==='Enter')unlockAdmin()})
 
   document.querySelectorAll('[data-pair]').forEach(function(t){
     t.addEventListener('click',function(){
@@ -1909,135 +1920,209 @@ async function createEscrow(){
   var days=parseInt($('escrowDeadline').value)
   if(!/^0x[0-9a-fA-F]{40}$/.test(to)){ss('escrowCreateStatus','That is not a valid wallet address','error');return}
   if(to.toLowerCase()===walletAddress.toLowerCase()){ss('escrowCreateStatus','You cannot send an escrow to yourself','error');return}
-  if(to.toLowerCase()===ESCROW_WALLET_ADDR.toLowerCase()){ss('escrowCreateStatus','That is the escrow wallet, not a recipient','error');return}
   if(!amt||amt<=0){ss('escrowCreateStatus','Enter an amount','error');return}
   var btn=$('escrowCreateBtn');btn.disabled=true;btn.textContent='Working…'
   try{
-    ss('escrowCreateStatus','Confirm the deposit in your wallet','pending')
     var raw=ethers.parseUnits(amt.toString(),6)
     var gp=(await provider.getFeeData()).gasPrice
-    var usdc=new ethers.Contract(TK.USDC.address,['function transfer(address,uint256) returns(bool)'],signer)
-    var rec=await(await usdc.transfer(ESCROW_WALLET_ADDR,raw,{gasLimit:100000n,gasPrice:gp})).wait()
-    ss('escrowCreateStatus','Recording the escrow…','pending')
-    var r=await fetch(API+'/deposit-confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({senderAddress:walletAddress,recipientAddress:to,amount:amt,description:desc,deadlineDays:days,depositTxHash:rec.hash})})
-    var d=await r.json()
-    if(!d.success){ss('escrowCreateStatus','Your deposit went through but recording failed. Save this hash and contact support: '+rec.hash,'error');return}
-    ss('escrowCreateStatus',amt+' USDC is now held for '+shortAddr(to),'success')
+    var usdc=new ethers.Contract(TK.USDC.address,E20,signer)
+    if(await usdc.allowance(walletAddress,EC)<raw){
+      ss('escrowCreateStatus','Step 1 of 2 — approve USDC in your wallet','pending')
+      await(await usdc.approve(EC,raw,{gasLimit:100000n,gasPrice:gp})).wait()
+    }
+    ss('escrowCreateStatus','Step 2 of 2 — confirm the escrow in your wallet','pending')
+    var hash=ethers.id(desc||'')
+    var esc=new ethers.Contract(EC,EABI,signer)
+    var rec=await(await esc.createEscrow(to,TK.USDC.address,raw,BigInt(days*86400),hash,{gasLimit:400000n,gasPrice:gp})).wait()
+    // pull the on-chain id out of the event
+    var chainId=null
+    for(var i=0;i<rec.logs.length;i++){
+      try{var pl=esc.interface.parseLog(rec.logs[i]);if(pl&&pl.name==='EscrowCreated'){chainId=pl.args.id.toString();break}}catch(e){}
+    }
+    // store the readable description off-chain; only its hash is on-chain
+    try{
+      await fetch(API+'/record-escrow',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({chainId:chainId,senderAddress:walletAddress,recipientAddress:to,amount:amt,description:desc,depositTxHash:rec.hash})})
+    }catch(e){}
+    ss('escrowCreateStatus',amt+' USDC locked in the contract for '+shortAddr(to),'success')
     $('escrowRecipient').value='';$('escrowAmount').value='';$('escrowDescription').value=''
     loadEscrowUSDCBal();loadEscrowNotifications()
-  }catch(err){ss('escrowCreateStatus',(err&&err.code===4001)?'You rejected the transaction.':((err&&(err.reason||err.shortMessage||err.message))||'Failed'),'error')}
+  }catch(err){ss('escrowCreateStatus',escErr(err),'error')}
   finally{btn.disabled=false;btn.textContent='Fund escrow'}
+}
+
+function escErr(e){
+  if(e&&e.code===4001)return 'You rejected the transaction.'
+  var r=(e&&(e.reason||e.shortMessage||e.message))||'Failed'
+  var map={
+   'not recipient':'Only the recipient can do that.',
+   'not sender':'Only the sender can do that.',
+   'not delivered':'The recipient has not marked this delivered yet.',
+   'not open':'This escrow is no longer open.',
+   'not disputable':'This escrow cannot be disputed right now.',
+   'deadline passed':'The dispute window has closed.',
+   'too early':'The deadline has not passed yet.',
+   'not settleable':'This escrow has already been settled.',
+   'not cancellable':'You can only cancel before the recipient marks it delivered.',
+   'transferFrom failed':'USDC transfer failed. Check your balance and approval.',
+   'not disputed':'This escrow is not disputed.',
+   'not arbitrator':'Only the arbitrator can resolve disputes.'
+  }
+  for(var k in map){if(r.indexOf(k)!==-1)return map[k]}
+  return r
+}
+
+// Reads escrows straight from the chain via events, then live status per id.
+async function fetchChainEscrows(mode){
+  var esc=new ethers.Contract(EC,EABI,readProvider)
+  var filter=mode==='sent'
+    ? esc.filters.EscrowCreated(null,walletAddress,null)
+    : esc.filters.EscrowCreated(null,null,walletAddress)
+  var logs=await esc.queryFilter(filter,0,'latest')
+  var out=[]
+  for(var i=logs.length-1;i>=0;i--){
+    var id=logs[i].args.id
+    try{
+      var e=await esc.getEscrow(id)
+      out.push({
+        id:id.toString(),
+        sender:e.sender,recipient:e.recipient,token:e.token,
+        amount:parseFloat(ethers.formatUnits(e.amount,6)),
+        original:parseFloat(ethers.formatUnits(logs[i].args.amount,6)),
+        deadline:Number(e.deadline)*1000,
+        status:ST[Number(e.status)]||'none',
+        descriptionHash:e.descriptionHash
+      })
+    }catch(err){}
+  }
+  return out
+}
+
+// Descriptions live off-chain. Fetch and verify them against the on-chain hash.
+async function attachDescriptions(list){
+  if(!list.length)return list
+  try{
+    var ids=list.map(function(x){return x.id}).join(',')
+    var rows=await(await fetch(SBU+'/rest/v1/escrows?chain_id=in.('+ids+')&select=chain_id,description',{headers:SBH})).json()
+    var byId={}
+    if(Array.isArray(rows))rows.forEach(function(r){byId[String(r.chain_id)]=r.description})
+    list.forEach(function(x){
+      var d=byId[x.id]
+      x.description=d||null
+      x.descriptionVerified = d!=null && ethers.id(d)===x.descriptionHash
+    })
+  }catch(e){}
+  return list
 }
 
 async function loadEscrowSent(){
   var c=$('escrowSentList')
   if(!connected){c.innerHTML='<div class="blank"><svg><use href="#i-wallet"/></svg><div class="blank-t">Connect to see escrows you sent</div><div class="blank-s">Payments you have funded will be listed here.</div></div>';return}
   c.innerHTML='<div class="blank">Loading</div>'
-  try{
-    var rows=await(await fetch(SBU+'/rest/v1/escrows?sender_address=eq.'+walletAddress.toLowerCase()+'&select=*&order=created_at.desc',{headers:SBH})).json()
-    renderEscrowList(c,rows,'sent')
-  }catch(e){c.innerHTML='<div class="blank"><div class="blank-t">Could not load escrows</div><div class="blank-s">Check your connection and try again.</div></div>'}
+  try{renderEscrowList(c,await attachDescriptions(await fetchChainEscrows('sent')),'sent')}
+  catch(e){c.innerHTML='<div class="blank"><div class="blank-t">Could not load escrows</div><div class="blank-s">'+escErr(e)+'</div></div>'}
 }
 async function loadEscrowReceived(){
   var c=$('escrowReceivedList')
   if(!connected){c.innerHTML='<div class="blank"><svg><use href="#i-wallet"/></svg><div class="blank-t">Connect to see escrows sent to you</div><div class="blank-s">Payments waiting on your delivery will be listed here.</div></div>';return}
   c.innerHTML='<div class="blank">Loading</div>'
-  try{
-    var rows=await(await fetch(SBU+'/rest/v1/escrows?recipient_address=eq.'+walletAddress.toLowerCase()+'&select=*&order=created_at.desc',{headers:SBH})).json()
-    renderEscrowList(c,rows,'received')
-  }catch(e){c.innerHTML='<div class="blank"><div class="blank-t">Could not load escrows</div><div class="blank-s">Check your connection and try again.</div></div>'}
+  try{renderEscrowList(c,await attachDescriptions(await fetchChainEscrows('received')),'received')}
+  catch(e){c.innerHTML='<div class="blank"><div class="blank-t">Could not load escrows</div><div class="blank-s">'+escErr(e)+'</div></div>'}
 }
 
 function renderEscrowList(c,rows,mode){
-  if(!Array.isArray(rows)||!rows.length){
+  if(!rows.length){
     c.innerHTML='<div class="blank"><svg><use href="#i-shield"/></svg><div class="blank-t">'+(mode==='sent'?'No escrows sent yet':'Nothing sent to you yet')+'</div><div class="blank-s">'+(mode==='sent'?'Fund an escrow and it will show up here until it settles.':'When someone funds an escrow for you, it appears here.')+'</div></div>'
     return
   }
+  var now=Date.now()
   c.innerHTML=rows.map(function(e){
-    var other=mode==='sent'?e.recipient_address:e.sender_address
-    var S={pending:['wait','Awaiting'],processing:['wait','Settling'],released:['ok','Settled'],refunded:['mute','Refunded'],disputed:['err','Disputed']}
-    var st=S[e.status]||S.pending
+    var other=mode==='sent'?e.recipient:e.sender
+    var S={funded:['wait','Awaiting delivery'],delivered:['wait','Awaiting your release'],released:['ok','Settled'],refunded:['mute','Refunded'],disputed:['err','In dispute'],resolved:['ok','Resolved']}
+    var st=S[e.status]||['mute',e.status]
+    if(mode==='received'&&e.status==='delivered')st=['wait','Awaiting sender']
+    var past=now>e.deadline
     var act=''
-    if(e.status==='pending'){
-      if(mode==='received'&&!e.recipient_fulfilled){
-        act='<button class="btn-main" id="escrowAction'+e.id+'" onclick="escrowMarkFulfilled('+e.id+')">Mark as delivered</button>'
-      }else if(mode==='sent'&&e.recipient_fulfilled&&!e.sender_confirmed){
-        act='<button class="btn-main" id="escrowAction'+e.id+'" onclick="escrowMarkConfirmed('+e.id+')">Release funds</button>'
-         +'<button class="btn-2" id="escrowDisputeBtn'+e.id+'" onclick="escrowDispute('+e.id+')" style="color:var(--rose);border-color:var(--rose)">Raise a dispute</button>'
-      }else if(mode==='received'){
-        act='<div class="note">Delivered. Waiting for the sender to release the funds.</div>'
+    if(e.status==='funded'){
+      if(mode==='received')act='<button class="btn-main" id="eA'+e.id+'" onclick="escAct('+e.id+',\'markDelivered\')">Mark as delivered</button>'
+      else act='<div class="note">Waiting for the recipient to mark this delivered.</div>'
+             +'<button class="btn-2" id="eA'+e.id+'" onclick="escAct('+e.id+',\'cancel\')">Cancel and refund me</button>'
+      if(past)act+='<button class="btn-2" onclick="escAct('+e.id+',\'settle\')">Settle now (deadline passed)</button>'
+    }else if(e.status==='delivered'){
+      if(mode==='sent'){
+        act='<button class="btn-main" id="eA'+e.id+'" onclick="escAct('+e.id+',\'confirmAndRelease\')">Release funds</button>'
+           +'<button class="btn-2" onclick="escAct('+e.id+',\'dispute\')" style="color:var(--rose);border-color:var(--rose)">Raise a dispute</button>'
       }else{
-        act='<div class="note">Waiting for the recipient to mark this delivered.</div>'
+        act='<div class="note">Delivered. The sender can release now, or it settles to you automatically after the deadline.</div>'
       }
+      if(past)act+='<button class="btn-2" onclick="escAct('+e.id+',\'settle\')">Settle now (deadline passed)</button>'
     }else if(e.status==='disputed'){
-      act='<div class="note-w">'+(mode==='received'?'The sender disputed this payment. Add proof that you delivered and a reviewer will decide.':'You disputed this payment. Add anything that supports your side and a reviewer will decide.')+'</div>'
-       +'<div style="margin-top:10px">'
-       +'<textarea class="inp" id="escrowEvidenceText'+e.id+'" placeholder="What happened, in your own words"></textarea>'
-       +'<div style="height:8px"></div>'
-       +'<input class="inp" type="text" id="escrowEvidenceLink'+e.id+'" placeholder="Link to proof (optional)"/>'
-       +'<button class="btn-main" id="escrowEvidenceBtn'+e.id+'" onclick="escrowSubmitEvidence('+e.id+')">Submit evidence</button>'
-       +'<div class="msg" id="escrowEvidenceStatus'+e.id+'"></div></div>'
+      act='<div class="note-w">'+(mode==='received'?'The sender disputed this. Add proof you delivered and the arbitrator will decide.':'You disputed this. Add anything supporting your side.')+'</div>'
+       +'<div style="margin-top:10px"><textarea class="inp" id="eT'+e.id+'" placeholder="What happened, in your own words"></textarea>'
+       +'<div style="height:8px"></div><input class="inp" type="text" id="eL'+e.id+'" placeholder="Link to proof (optional)"/>'
+       +'<button class="btn-main" id="eE'+e.id+'" onclick="escrowSubmitEvidence('+e.id+')">Submit evidence</button>'
+       +'<div class="msg" id="eS'+e.id+'"></div></div>'
     }
+    var descLine=e.description
+      ? e.description+(e.descriptionVerified?'':' <span style="color:var(--rose)">(does not match on-chain hash)</span>')
+      : 'Escrow #'+e.id
     return '<div class="card" style="margin-bottom:10px">'
      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px">'
-     +'<div style="min-width:0"><div style="font-size:.9375rem;font-weight:600">'+(e.description||'Escrow #'+e.id)+'</div>'
-     +'<div style="font-size:.75rem;color:var(--t4);margin-top:2px">'+(mode==='sent'?'To ':'From ')+'<span class="mono">'+shortAddr(other)+'</span></div></div>'
+     +'<div style="min-width:0"><div style="font-size:.9375rem;font-weight:600">'+descLine+'</div>'
+     +'<div style="font-size:.75rem;color:var(--t4);margin-top:2px">'+(mode==='sent'?'To ':'From ')+'<span class="mono">'+shortAddr(other)+'</span> · #'+e.id+'</div></div>'
      +'<span class="pill '+st[0]+'">'+st[1]+'</span></div>'
-     +'<div class="drow"><span class="drow-l">Amount</span><span class="drow-v mono">'+e.amount+' USDC</span></div>'
-     +'<div class="drow"><span class="drow-l">Auto-settles</span><span class="drow-v mono" style="font-size:.75rem">'+new Date(e.deadline).toLocaleString()+'</span></div>'
-     +'<div class="drow"><span class="drow-l">Delivered</span><span class="drow-v">'+(e.recipient_fulfilled?'Yes':'Not yet')+'</span></div>'
-     +(e.release_tx_hash?'<div class="drow"><span class="drow-l">Settlement</span><a class="drow-v mono am" style="font-size:.75rem" href="'+EXP+'/tx/'+e.release_tx_hash+'" target="_blank" rel="noopener">View ↗</a></div>':'')
-     +act+'<div class="msg" id="escrowStatus'+e.id+'"></div></div>'
+     +'<div class="drow"><span class="drow-l">Amount</span><span class="drow-v mono">'+(e.amount>0?e.amount:e.original)+' USDC</span></div>'
+     +'<div class="drow"><span class="drow-l">Deadline</span><span class="drow-v mono" style="font-size:.75rem">'+new Date(e.deadline).toLocaleString()+'</span></div>'
+     +'<div class="drow"><span class="drow-l">Held by</span><a class="drow-v mono am" style="font-size:.75rem" href="'+EXP+'/address/'+EC+'" target="_blank" rel="noopener">Contract ↗</a></div>'
+     +act+'<div class="msg" id="eM'+e.id+'"></div></div>'
   }).join('')
 }
 
-async function escrowMarkFulfilled(id){
-  var b=$('escrowAction'+id),s='escrowStatus'+id
-  if(b){b.disabled=true;b.textContent='Working…'}
-  try{
-    var d=await(await fetch(API+'/mark-fulfilled',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({escrowId:id,recipientAddress:walletAddress})})).json()
-    if(d.success){msg(s,'Marked as delivered. The sender has been notified.','ok');loadEscrowReceived();loadEscrowNotifications()}
-    else{if(b){b.disabled=false;b.textContent='Mark as delivered'}msg(s,d.error||'Could not update this escrow','err')}
-  }catch(e){if(b){b.disabled=false;b.textContent='Mark as delivered'}msg(s,e.message,'err')}
+var ACTLBL={markDelivered:'Mark as delivered',confirmAndRelease:'Release funds',cancel:'Cancel and refund me',dispute:'Raise a dispute',settle:'Settle now (deadline passed)'}
+var ACTASK={
+ confirmAndRelease:'This releases the USDC to the recipient and cannot be undone. Continue?',
+ cancel:'This refunds the escrow back to you. Continue?',
+ dispute:'This freezes the escrow until the arbitrator decides. Only dispute if you did not get what was agreed. Continue?'
 }
 
-async function escrowMarkConfirmed(id){
-  if(!confirm('This releases the USDC to the recipient and cannot be undone. Continue?'))return
-  var b=$('escrowAction'+id),s='escrowStatus'+id
-  if(b){b.disabled=true;b.textContent='Releasing…'}
-  msg(s,'Releasing the funds. This can take up to 30 seconds.','wait')
+// Every escrow action is now a direct contract call from the user's own wallet.
+async function escAct(id,fn){
+  if(!connected){openWalletPicker();return}
+  if(ACTASK[fn]&&!confirm(ACTASK[fn]))return
+  var btn=$('eA'+id),box='eM'+id
+  if(btn){btn.disabled=true;btn.textContent='Confirm in your wallet…'}
+  msg(box,'Confirm the transaction in your wallet','wait')
   try{
-    var d=await(await fetch(API+'/mark-confirmed',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({escrowId:id,senderAddress:walletAddress})})).json()
-    if(d.success){msg(s,'Released'+(d.txHash?' · '+d.txHash.slice(0,10)+'…':''),'ok');loadEscrowSent();loadEscrowNotifications()}
-    else{if(b){b.disabled=false;b.textContent='Release funds'}msg(s,d.error||'Could not release the funds','err')}
-  }catch(e){if(b){b.disabled=false;b.textContent='Release funds'}msg(s,e.message,'err')}
-}
-
-async function escrowDispute(id){
-  if(!confirm('This freezes the escrow until a reviewer decides. Only raise a dispute if you did not get what was agreed. Continue?'))return
-  var b=$('escrowDisputeBtn'+id),a=$('escrowAction'+id),s='escrowStatus'+id
-  if(b){b.disabled=true;b.textContent='Filing…'}
-  if(a)a.disabled=true
-  try{
-    var d=await(await fetch(API+'/dispute-escrow',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({escrowId:id,senderAddress:walletAddress})})).json()
-    if(d.success){msg(s,'Disputed. The funds are frozen until a reviewer decides.','wait');loadEscrowSent();loadEscrowNotifications()}
-    else{if(b){b.disabled=false;b.textContent='Raise a dispute'}if(a)a.disabled=false;msg(s,d.error||'Could not file the dispute','err')}
-  }catch(e){if(b){b.disabled=false;b.textContent='Raise a dispute'}if(a)a.disabled=false;msg(s,e.message,'err')}
+    var gp=(await provider.getFeeData()).gasPrice
+    var esc=new ethers.Contract(EC,EABI,signer)
+    var tx=await esc[fn](id,{gasLimit:300000n,gasPrice:gp})
+    msg(box,'Settling on Arc…','wait')
+    var rec=await tx.wait()
+    msg(box,'Done · '+rec.hash.slice(0,10)+'…','ok')
+    setTimeout(function(){
+      if($('escrowSentPanel').style.display==='block')loadEscrowSent()
+      if($('escrowReceivedPanel').style.display==='block')loadEscrowReceived()
+      loadEscrowNotifications()
+    },1200)
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent=ACTLBL[fn]||'Try again'}
+    msg(box,escErr(e),'err')
+  }
 }
 
 async function escrowSubmitEvidence(id){
-  var t=$('escrowEvidenceText'+id),l=$('escrowEvidenceLink'+id),b=$('escrowEvidenceBtn'+id),s='escrowEvidenceStatus'+id
+  var t=$('eT'+id),l=$('eL'+id),b=$('eE'+id),s='eS'+id
   var text=t?t.value.trim():'',link=l?l.value.trim():''
   if(!text){msg(s,'Describe what happened before submitting','err');return}
   if(b){b.disabled=true;b.textContent='Submitting…'}
   try{
-    var d=await(await fetch(API+'/submit-evidence',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({escrowId:id,submittedBy:walletAddress,explanation:text,proofLink:link||null})})).json()
+    var d=await(await fetch(API+'/submit-evidence',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({escrowId:id,submittedBy:walletAddress,explanation:text,proofLink:link||null})})).json()
     if(d.success){
-      msg(s,'Evidence submitted. A reviewer will look at both sides.','ok')
+      msg(s,'Evidence submitted. The arbitrator will review both sides.','ok')
       if(b)b.textContent='Submitted'
       if(t)t.disabled=true
       if(l)l.disabled=true
-      loadEscrowNotifications()
     }else{if(b){b.disabled=false;b.textContent='Submit evidence'}msg(s,d.error||'Could not submit','err')}
   }catch(e){if(b){b.disabled=false;b.textContent='Submit evidence'}msg(s,e.message,'err')}
 }
@@ -2045,30 +2130,23 @@ async function escrowSubmitEvidence(id){
 async function loadEscrowNotifications(){
   if(!connected||!walletAddress)return
   try{
-    var sent=await(await fetch(SBU+'/rest/v1/escrows?sender_address=eq.'+walletAddress.toLowerCase()+'&select=*&order=created_at.desc',{headers:SBH})).json()
-    var recv=await(await fetch(SBU+'/rest/v1/escrows?recipient_address=eq.'+walletAddress.toLowerCase()+'&select=*&order=created_at.desc',{headers:SBH})).json()
-    if(!Array.isArray(sent))sent=[]
-    if(!Array.isArray(recv))recv=[]
-    var items=[],anyDisputed=false
+    var sent=await fetchChainEscrows('sent')
+    var recv=await fetchChainEscrows('received')
+    var items=[],now=Date.now()
     sent.forEach(function(e){
-      if(e.status==='pending'&&e.recipient_fulfilled&&!e.sender_confirmed)items.push({t:'act',x:shortAddr(e.recipient_address)+' delivered. Release '+e.amount+' USDC.',d:e.recipient_fulfilled_at})
-      if(e.status==='released')items.push({t:'info',x:'Released '+e.amount+' USDC to '+shortAddr(e.recipient_address),d:e.sender_confirmed_at})
-      if(e.status==='refunded')items.push({t:'info',x:e.amount+' USDC came back to you from an expired escrow',d:e.created_at})
-      if(e.status==='disputed')anyDisputed=true
+      if(e.status==='delivered')items.push({t:'act',x:shortAddr(e.recipient)+' marked #'+e.id+' delivered. Release '+e.amount+' USDC or dispute.',d:e.deadline})
+      if(e.status==='released')items.push({t:'info',x:'Escrow #'+e.id+' settled to '+shortAddr(e.recipient),d:e.deadline})
+      if(e.status==='refunded')items.push({t:'info',x:'Escrow #'+e.id+' refunded to you',d:e.deadline})
+      if(e.status==='disputed')items.push({t:'act',x:'Escrow #'+e.id+' is in dispute. Submit your evidence.',d:e.deadline})
+      if(e.status==='funded'&&now>e.deadline)items.push({t:'act',x:'Escrow #'+e.id+' expired undelivered. Settle to get your funds back.',d:e.deadline})
     })
     recv.forEach(function(e){
-      if(e.status==='pending'&&!e.recipient_fulfilled)items.push({t:'act',x:shortAddr(e.sender_address)+' funded '+e.amount+' USDC. Mark it delivered when done.',d:e.created_at})
-      if(e.status==='released')items.push({t:'info',x:'Received '+e.amount+' USDC from '+shortAddr(e.sender_address),d:e.sender_confirmed_at||e.created_at})
-      if(e.status==='disputed')anyDisputed=true
+      if(e.status==='funded')items.push({t:'act',x:shortAddr(e.sender)+' funded '+e.amount+' USDC. Mark #'+e.id+' delivered when done.',d:e.deadline})
+      if(e.status==='delivered'&&now>e.deadline)items.push({t:'act',x:'Escrow #'+e.id+' is past its deadline. Settle to claim your funds.',d:e.deadline})
+      if(e.status==='released')items.push({t:'info',x:'Received '+e.amount+' USDC from escrow #'+e.id,d:e.deadline})
+      if(e.status==='disputed')items.push({t:'act',x:'Escrow #'+e.id+' is in dispute. Submit your evidence.',d:e.deadline})
     })
-    if(anyDisputed){
-      var ev=await(await fetch(SBU+'/rest/v1/escrow_evidence?submitted_by=eq.'+walletAddress.toLowerCase()+'&select=escrow_id',{headers:SBH})).json()
-      var done=Array.isArray(ev)?ev.map(function(x){return x.escrow_id}):[]
-      sent.concat(recv).filter(function(e){return e.status==='disputed'}).forEach(function(e){
-        if(done.indexOf(e.id)===-1)items.push({t:'act',x:'Escrow #'+e.id+' is disputed. Submit your evidence.',d:e.created_at})
-      })
-    }
-    items.sort(function(a,b){return new Date(b.d)-new Date(a.d)})
+    items.sort(function(a,b){return b.d-a.d})
     var acts=items.filter(function(i){return i.t==='act'}).length
     var dot=$('escrowBellDot');if(dot)dot.style.display=acts?'block':'none'
     var list=$('escrowBellList');if(!list)return
@@ -2080,31 +2158,30 @@ async function loadEscrowNotifications(){
   }catch(e){}
 }
 
-// ── ADMIN ─────────────────────────────────────
+// ── ADMIN ─────────────────────────────────────────────────────
+// No password any more. The contract itself decides who may resolve a dispute,
+// so the page simply checks whether the connected wallet is the arbitrator.
 async function unlockAdmin(){
-  var pw=$('adminCodeInput').value,btn=$('adminUnlockBtn')
-  if(!pw){msg('adminGateStatus','Enter your admin password','err');return}
-  btn.disabled=true;btn.textContent='Signing in…'
-  msg('adminGateStatus','Verifying…','wait')
+  var b=$('adminGateStatus'),btn=$('adminUnlockBtn')
+  if(!connected){openWalletPicker();return}
+  btn.disabled=true;btn.textContent='Checking…'
+  msg('adminGateStatus','Checking the contract…','wait')
   try{
-    var d=await(await fetch(API+'/admin-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})})).json()
-    if(d.success&&d.token){
-      adminToken=d.token;adminUnlocked=true
-      $('adminCodeInput').value=''
-      $('adminGate').style.display='none'
-      $('adminContent').style.display='block'
-      msg('adminGateStatus','','')
-      loadAdminDisputes()
-    }else msg('adminGateStatus',d.error||'Incorrect password','err')
-  }catch(e){msg('adminGateStatus','Could not sign in: '+e.message,'err')}
-  finally{btn.disabled=false;btn.textContent='Sign in'}
+    var esc=new ethers.Contract(EC,EABI,readProvider)
+    var arb=await esc.arbitrator()
+    if(arb.toLowerCase()!==walletAddress.toLowerCase()){
+      msg('adminGateStatus','This wallet is not the arbitrator. Connect '+shortAddr(arb)+' to resolve disputes.','err')
+      return
+    }
+    adminUnlocked=true
+    $('adminGate').style.display='none'
+    $('adminContent').style.display='block'
+    msg('adminGateStatus','','')
+    loadAdminDisputes()
+  }catch(e){msg('adminGateStatus','Could not reach the contract: '+escErr(e),'err')}
+  finally{btn.disabled=false;btn.textContent='Verify wallet'}
 }
-function adminSessionExpired(){
-  adminToken=null;adminUnlocked=false
-  $('adminGate').style.display='block'
-  $('adminContent').style.display='none'
-  msg('adminGateStatus','Your session expired. Sign in again.','err')
-}
+
 function evidenceHtml(list,role){
   var r=list.filter(function(x){return x.role===role})
   if(!r.length)return '<div style="font-size:.8125rem;color:var(--t4)">Nothing submitted yet</div>'
@@ -2117,50 +2194,61 @@ async function loadAdminDisputes(){
   var c=$('adminDisputeList')
   c.innerHTML='<div class="blank">Loading</div>'
   try{
-    var rows=await(await fetch(SBU+'/rest/v1/escrows?status=eq.disputed&select=*&order=created_at.desc',{headers:SBH})).json()
-    if(!Array.isArray(rows)||!rows.length){c.innerHTML='<div class="blank"><svg><use href="#i-check"/></svg><div class="blank-t">No open disputes</div><div class="blank-s">Everything has settled on its own.</div></div>';return}
+    var esc=new ethers.Contract(EC,EABI,readProvider)
+    var logs=await esc.queryFilter(esc.filters.EscrowCreated(),0,'latest')
+    var disputed=[]
+    for(var i=0;i<logs.length;i++){
+      var id=logs[i].args.id
+      var e=await esc.getEscrow(id)
+      if(Number(e.status)===5)disputed.push({id:id.toString(),e:e})
+    }
+    if(!disputed.length){c.innerHTML='<div class="blank"><svg><use href="#i-check"/></svg><div class="blank-t">No open disputes</div><div class="blank-s">Everything has settled on its own.</div></div>';return}
     var html=''
-    for(var i=0;i<rows.length;i++){
-      var e=rows[i]
-      var ev=await(await fetch(SBU+'/rest/v1/escrow_evidence?escrow_id=eq.'+e.id+'&select=*&order=created_at.asc',{headers:SBH})).json()
+    for(var k=0;k<disputed.length;k++){
+      var d=disputed[k],e=d.e
+      var amt=parseFloat(ethers.formatUnits(e.amount,6))
+      var ev=[]
+      try{ev=await(await fetch(SBU+'/rest/v1/escrow_evidence?escrow_id=eq.'+d.id+'&select=*&order=created_at.asc',{headers:SBH})).json()}catch(x){}
       if(!Array.isArray(ev))ev=[]
       html+='<div class="card" style="margin-bottom:10px">'
-       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px"><div><div style="font-size:.9375rem;font-weight:600">'+(e.description||'Escrow #'+e.id)+'</div><div style="font-size:.75rem;color:var(--t4);margin-top:2px">Escrow #'+e.id+'</div></div><span class="pill err">Disputed</span></div>'
-       +'<div class="drow"><span class="drow-l">Amount</span><span class="drow-v mono">'+e.amount+' USDC</span></div>'
-       +'<div class="drow"><span class="drow-l">Sender</span><span class="drow-v mono" style="font-size:.75rem">'+shortAddr(e.sender_address)+'</span></div>'
-       +'<div class="drow"><span class="drow-l">Recipient</span><span class="drow-v mono" style="font-size:.75rem">'+shortAddr(e.recipient_address)+'</span></div>'
+       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px"><div><div style="font-size:.9375rem;font-weight:600">Escrow #'+d.id+'</div><div style="font-size:.75rem;color:var(--t4);margin-top:2px">'+amt+' USDC held</div></div><span class="pill err">Disputed</span></div>'
+       +'<div class="drow"><span class="drow-l">Sender</span><span class="drow-v mono" style="font-size:.75rem">'+shortAddr(e.sender)+'</span></div>'
+       +'<div class="drow"><span class="drow-l">Recipient</span><span class="drow-v mono" style="font-size:.75rem">'+shortAddr(e.recipient)+'</span></div>'
        +'<div style="margin-top:12px;padding:12px;border-radius:var(--r);background:var(--el)"><div class="eyebrow" style="margin-bottom:7px">Sender says</div>'+evidenceHtml(ev,'sender')+'</div>'
        +'<div style="margin-top:8px;padding:12px;border-radius:var(--r);background:var(--el)"><div class="eyebrow" style="margin-bottom:7px">Recipient says</div>'+evidenceHtml(ev,'recipient')+'</div>'
-       +'<button class="btn-main" id="adminRelease'+e.id+'" onclick="resolveDisputeAdmin('+e.id+',\'release\')">Settle to recipient</button>'
-       +'<button class="btn-2" id="adminRefund'+e.id+'" onclick="resolveDisputeAdmin('+e.id+',\'refund\')" style="color:var(--rose);border-color:var(--rose)">Refund the sender</button>'
-       +'<div class="msg" id="adminStatus'+e.id+'"></div></div>'
+       +'<div class="fld" style="margin-top:14px"><div class="fld-l"><span>Award to recipient (USDC)</span><span>of '+amt+'</span></div>'
+       +'<input class="inp mono" type="number" id="aSplit'+d.id+'" value="'+amt+'" min="0" max="'+amt+'" step="0.000001"/></div>'
+       +'<button class="btn-main" id="aR'+d.id+'" onclick="resolveDisputeAdmin('+d.id+')">Resolve with this split</button>'
+       +'<div style="display:flex;gap:8px"><button class="btn-2" onclick="setSplit('+d.id+','+amt+')">All to recipient</button>'
+       +'<button class="btn-2" onclick="setSplit('+d.id+',0)">All to sender</button></div>'
+       +'<div class="msg" id="aM'+d.id+'"></div></div>'
     }
     c.innerHTML=html
-  }catch(e){c.innerHTML='<div class="blank"><div class="blank-t">Could not load disputes</div></div>'}
+  }catch(e){c.innerHTML='<div class="blank"><div class="blank-t">Could not load disputes</div><div class="blank-s">'+escErr(e)+'</div></div>'}
 }
-async function resolveDisputeAdmin(id,decision){
-  if(!adminToken){adminSessionExpired();return}
-  if(!confirm('This will '+(decision==='release'?'send the funds to the recipient':'return the funds to the sender')+' and cannot be undone. Continue?'))return
-  var rb=$('adminRelease'+id),fb=$('adminRefund'+id),s='adminStatus'+id
-  if(rb)rb.disabled=true
-  if(fb)fb.disabled=true
-  msg(s,'Settling. This can take up to 30 seconds.','wait')
+
+function setSplit(id,v){var el=$('aSplit'+id);if(el)el.value=v}
+
+async function resolveDisputeAdmin(id){
+  var el=$('aSplit'+id)
+  var toRecip=parseFloat(el?el.value:'0')
+  if(isNaN(toRecip)||toRecip<0){msg('aM'+id,'Enter a valid amount','err');return}
+  if(!confirm('Award '+toRecip+' USDC to the recipient and refund the rest to the sender? This cannot be undone.'))return
+  var btn=$('aR'+id)
+  if(btn){btn.disabled=true;btn.textContent='Confirm in your wallet…'}
+  msg('aM'+id,'Confirm the transaction in your wallet','wait')
   try{
-    var res=await fetch(API+'/resolve-dispute',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+adminToken},body:JSON.stringify({escrowId:id,decision:decision,resolvedBy:'admin'})})
-    var d=await res.json()
-    if(d.success){msg(s,'Settled'+(d.txHash?' · '+d.txHash.slice(0,10)+'…':''),'ok');setTimeout(loadAdminDisputes,1500)}
-    else{
-      if(rb)rb.disabled=false
-      if(fb)fb.disabled=false
-      if(res.status===401){adminSessionExpired();return}
-      msg(s,d.error||'Could not settle this dispute','err')
-    }
+    var gp=(await provider.getFeeData()).gasPrice
+    var esc=new ethers.Contract(EC,EABI,signer)
+    var rec=await(await esc.resolveDispute(id,ethers.parseUnits(toRecip.toString(),6),{gasLimit:300000n,gasPrice:gp})).wait()
+    msg('aM'+id,'Resolved · '+rec.hash.slice(0,10)+'…','ok')
+    setTimeout(loadAdminDisputes,1500)
   }catch(e){
-    if(rb)rb.disabled=false
-    if(fb)fb.disabled=false
-    msg(s,e.message,'err')
+    if(btn){btn.disabled=false;btn.textContent='Resolve with this split'}
+    msg('aM'+id,escErr(e),'err')
   }
 }
+
 </script>
 </body>
 </html>
