@@ -2099,8 +2099,7 @@ function renderEscrowList(c,rows,mode){
     var act=''
     if(e.status==='funded'){
       if(mode==='received')act='<button class="btn-main" id="eA'+e.id+'" onclick="escAct('+e.id+',\'markDelivered\')">Mark as delivered</button>'
-      else act='<div class="note">Waiting for the recipient to mark this delivered.</div>'
-             +'<button class="btn-2" id="eA'+e.id+'" onclick="escAct('+e.id+',\'cancel\')">Cancel and refund me</button>'
+      else act='<div class="note">Waiting for the recipient to mark this delivered. If the deadline passes undelivered, your funds return to you automatically.</div>'
       if(past)act+='<button class="btn-2" onclick="escAct('+e.id+',\'settle\')">Settle now (deadline passed)</button>'
     }else if(e.status==='delivered'){
       if(mode==='sent'){
@@ -2132,10 +2131,9 @@ function renderEscrowList(c,rows,mode){
   }).join('')
 }
 
-var ACTLBL={markDelivered:'Mark as delivered',confirmAndRelease:'Release funds',cancel:'Cancel and refund me',dispute:'Raise a dispute',settle:'Settle now (deadline passed)'}
+var ACTLBL={markDelivered:'Mark as delivered',confirmAndRelease:'Release funds',dispute:'Raise a dispute',settle:'Settle now (deadline passed)'}
 var ACTASK={
  confirmAndRelease:'This releases the USDC to the recipient and cannot be undone. Continue?',
- cancel:'This refunds the escrow back to you. Continue?',
  dispute:'This freezes the escrow until the arbitrator decides. Only dispute if you did not get what was agreed. Continue?'
 }
 
