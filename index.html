@@ -1950,7 +1950,8 @@ async function createEscrow(){
     }catch(e){}
     ss('escrowCreateStatus',amt+' USDC locked in the contract for '+shortAddr(to),'success')
     $('escrowRecipient').value='';$('escrowAmount').value='';$('escrowDescription').value=''
-    loadEscrowUSDCBal();loadEscrowNotifications()
+    await afterTx(rec)
+    await refreshEscrowViews()
   }catch(err){ss('escrowCreateStatus',escErr(err),'error')}
   finally{btn.disabled=false;btn.textContent='Fund escrow'}
 }
@@ -2018,13 +2019,17 @@ async function attachDescriptions(list){
   if(!list.length)return list
   try{
     var ids=list.map(function(x){return x.id}).join(',')
-    var rows=await(await fetch(SBU+'/rest/v1/escrows?chain_id=in.('+ids+')&select=chain_id,description',{headers:SBH})).json()
+    var rows=await(await fetch(SBU+'/rest/v1/escrows?chain_id=in.('+ids+')&select=chain_id,description,amount',{headers:SBH})).json()
     var byId={}
-    if(Array.isArray(rows))rows.forEach(function(r){byId[String(r.chain_id)]=r.description})
+    if(Array.isArray(rows))rows.forEach(function(r){byId[String(r.chain_id)]=r})
     list.forEach(function(x){
-      var d=byId[x.id]
+      var r=byId[x.id]
+      var d=r?r.description:null
       x.description=d||null
       x.descriptionVerified = d!=null && ethers.id(d)===x.descriptionHash
+      // The contract zeroes amount once an escrow settles, so fall back to the
+      // figure recorded at creation for display purposes.
+      x.storedAmount = r&&r.amount!=null ? parseFloat(r.amount) : null
     })
   }catch(e){}
   return list
@@ -2043,6 +2048,31 @@ async function loadEscrowReceived(){
   c.innerHTML='<div class="blank">Loading</div>'
   try{renderEscrowList(c,await attachDescriptions(await fetchChainEscrows('received')),'received')}
   catch(e){c.innerHTML='<div class="blank"><div class="blank-t">Could not load escrows</div><div class="blank-s">'+escErr(e)+'</div></div>'}
+}
+
+// A transaction can be mined before the read provider has indexed that block,
+// which is why balances and lists looked stale until a manual refresh.
+// Wait for the reader to catch up, then refresh.
+async function afterTx(rec){
+  var target=rec&&rec.blockNumber?rec.blockNumber:0
+  for(var i=0;i<12;i++){
+    try{ if(await readProvider.getBlockNumber()>=target)return true }catch(e){}
+    await new Promise(function(r){setTimeout(r,500)})
+  }
+  return false
+}
+
+async function refreshEscrowViews(){
+  await loadEscrowUSDCBal()
+  if($('escrowSentPanel').style.display==='block')await loadEscrowSent()
+  if($('escrowReceivedPanel').style.display==='block')await loadEscrowReceived()
+  await loadEscrowNotifications()
+}
+
+function escAmount(e){
+  if(e.amount>0)return e.amount
+  if(e.storedAmount!=null)return e.storedAmount
+  return '—'
 }
 
 function renderEscrowList(c,rows,mode){
@@ -2086,7 +2116,7 @@ function renderEscrowList(c,rows,mode){
      +'<div style="min-width:0"><div style="font-size:.9375rem;font-weight:600">'+descLine+'</div>'
      +'<div style="font-size:.75rem;color:var(--t4);margin-top:2px">'+(mode==='sent'?'To ':'From ')+'<span class="mono">'+shortAddr(other)+'</span> · #'+e.id+'</div></div>'
      +'<span class="pill '+st[0]+'">'+st[1]+'</span></div>'
-     +'<div class="drow"><span class="drow-l">Amount</span><span class="drow-v mono">'+e.amount+' USDC</span></div>'
+     +'<div class="drow"><span class="drow-l">Amount</span><span class="drow-v mono">'+escAmount(e)+' USDC</span></div>'
      +'<div class="drow"><span class="drow-l">Deadline</span><span class="drow-v mono" style="font-size:.75rem">'+new Date(e.deadline).toLocaleString()+'</span></div>'
      +'<div class="drow"><span class="drow-l">Held by</span><a class="drow-v mono am" style="font-size:.75rem" href="'+EXP+'/address/'+EC+'" target="_blank" rel="noopener">Contract ↗</a></div>'
      +act+'<div class="msg" id="eM'+e.id+'"></div></div>'
@@ -2114,11 +2144,8 @@ async function escAct(id,fn){
     msg(box,'Settling on Arc…','wait')
     var rec=await tx.wait()
     msg(box,'Done · '+rec.hash.slice(0,10)+'…','ok')
-    setTimeout(function(){
-      if($('escrowSentPanel').style.display==='block')loadEscrowSent()
-      if($('escrowReceivedPanel').style.display==='block')loadEscrowReceived()
-      loadEscrowNotifications()
-    },1200)
+    await afterTx(rec)
+    await refreshEscrowViews()
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent=ACTLBL[fn]||'Try again'}
     msg(box,escErr(e),'err')
@@ -2256,7 +2283,8 @@ async function resolveDisputeAdmin(id){
     var esc=new ethers.Contract(EC,EABI,signer)
     var rec=await(await esc.resolveDispute(id,ethers.parseUnits(toRecip.toString(),6),{gasLimit:300000n,gasPrice:gp})).wait()
     msg('aM'+id,'Resolved · '+rec.hash.slice(0,10)+'…','ok')
-    setTimeout(loadAdminDisputes,1500)
+    await afterTx(rec)
+    await loadAdminDisputes()
   }catch(e){
     if(btn){btn.disabled=false;btn.textContent='Resolve with this split'}
     msg('aM'+id,escErr(e),'err')
