@@ -8,6 +8,10 @@ import { ethers } from "ethers";
  * key can only pay gas to trigger a settlement that was already going to happen
  * that way. If it leaks, the worst case is wasted gas, not redirected funds.
  *
+ * Escrows are found by walking ids from nextId() rather than by scanning event
+ * logs, because Alchemy's free tier caps eth_getLogs at a 10 block range which
+ * makes log scanning unusable here.
+ *
  * Anyone can call settle(), so this is a convenience, not a dependency. If the
  * keeper stops, users can still settle from the UI themselves.
  */
@@ -15,12 +19,14 @@ import { ethers } from "ethers";
 const ESCROW_ABI = [
   "function settle(uint256 id)",
   "function isSettleable(uint256 id) view returns (bool)",
-  "event EscrowCreated(uint256 indexed id,address indexed sender,address indexed recipient,address token,uint256 amount,uint64 deadline,bytes32 descriptionHash)"
+  "function nextId() view returns (uint256)"
 ];
 
-// Keep each run well inside the serverless time limit. The cron runs every
-// minute, so a backlog drains quickly rather than timing out in one go.
+// Keep each run inside the serverless time limit. The cron runs every minute,
+// so a backlog drains quickly rather than timing out in one go.
 const MAX_PER_RUN = 5;
+// How far back to look. Older escrows are long settled.
+const MAX_SCAN = 300;
 
 export default async function handler(req, res) {
   const auth = req.headers["authorization"];
@@ -47,25 +53,26 @@ export default async function handler(req, res) {
     const readOnly = new ethers.Contract(ESCROW, ESCROW_ABI, provider);
     const writable = new ethers.Contract(ESCROW, ESCROW_ABI, wallet);
 
-    const logs = await readOnly.queryFilter(readOnly.filters.EscrowCreated(), 0, "latest");
+    const next = Number(await readOnly.nextId());
+    if (next <= 1) {
+      return res.status(200).json({ success: true, settled: 0, message: "No escrows yet" });
+    }
 
-    // Ask the contract which ones are actually due. Cheap view call, and it is
-    // the same condition settle() enforces, so we never send a doomed tx.
+    // isSettleable is the same condition settle() enforces, so we never send a
+    // transaction that is going to revert.
+    const lowest = Math.max(1, next - MAX_SCAN);
     const due = [];
-    for (const log of logs) {
-      if (due.length >= MAX_PER_RUN) break;
-      const id = log.args.id;
+    for (let id = next - 1; id >= lowest && due.length < MAX_PER_RUN; id--) {
       try {
         if (await readOnly.isSettleable(id)) due.push(id);
-      } catch (e) { /* skip unreadable ids */ }
+      } catch (e) { /* unreadable id, skip */ }
     }
 
     if (due.length === 0) {
-      return res.status(200).json({ success: true, settled: 0, message: "Nothing due" });
+      return res.status(200).json({ success: true, settled: 0, scanned: next - lowest, message: "Nothing due" });
     }
 
     const feeData = await provider.getFeeData();
-    // Send sequentially so nonces stay in order on a single keeper wallet.
     let nonce = await provider.getTransactionCount(wallet.address, "pending");
     const results = [];
 
@@ -77,10 +84,10 @@ export default async function handler(req, res) {
           nonce: nonce++
         });
         const rec = await tx.wait();
-        results.push({ id: id.toString(), status: "settled", txHash: rec.hash });
+        results.push({ id: String(id), status: "settled", txHash: rec.hash });
       } catch (e) {
         // Most likely someone settled it first between our check and our send.
-        results.push({ id: id.toString(), status: "skipped", reason: (e.shortMessage || e.message || "").slice(0, 120) });
+        results.push({ id: String(id), status: "skipped", reason: (e.shortMessage || e.message || "").slice(0, 120) });
         nonce = await provider.getTransactionCount(wallet.address, "pending");
       }
     }
