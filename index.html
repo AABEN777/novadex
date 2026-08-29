@@ -899,6 +899,7 @@ const EABI=[
  'function resolveDispute(uint256 id,uint256 toRecipient)',
  'function arbitrator() view returns (address)',
  'function isSettleable(uint256 id) view returns (bool)',
+ 'function nextId() view returns (uint256)',
  'function getEscrow(uint256 id) view returns (tuple(address sender,address recipient,address token,uint256 amount,uint64 deadline,uint64 deliveredAt,bytes32 descriptionHash,uint8 status))',
  'event EscrowCreated(uint256 indexed id,address indexed sender,address indexed recipient,address token,uint256 amount,uint64 deadline,bytes32 descriptionHash)'
 ]
@@ -1976,43 +1977,25 @@ function escErr(e){
 }
 
 
-// Providers cap how many blocks one eth_getLogs may cover. Walk the range in
-// chunks and shrink the window if the provider still complains, so this keeps
-// working as the chain grows without needing to know the exact limit.
-async function scanLogs(contract,filter){
-  var latest=await readProvider.getBlockNumber()
-  var from=EC_BLOCK,chunk=10000,out=[]
-  while(from<=latest){
-    var to=Math.min(from+chunk-1,latest)
-    try{
-      var logs=await contract.queryFilter(filter,from,to)
-      out=out.concat(logs)
-      from=to+1
-    }catch(e){
-      if(chunk>500){chunk=Math.floor(chunk/4);continue}
-      throw e
-    }
-  }
-  return out
-}
+// Alchemy's free tier caps eth_getLogs at a 10 block range, which makes event
+// scanning useless here. Escrow ids are sequential, so read them directly with
+// eth_call instead. No log queries, no range limits.
+var _escCache={ids:null,at:0}
 
-// Reads escrows straight from the chain via events, then live status per id.
-async function fetchChainEscrows(mode){
+async function readAllEscrows(){
   var esc=new ethers.Contract(EC,EABI,readProvider)
-  var filter=mode==='sent'
-    ? esc.filters.EscrowCreated(null,walletAddress,null)
-    : esc.filters.EscrowCreated(null,null,walletAddress)
-  var logs=await scanLogs(esc,filter)
+  var next=Number(await esc.nextId())
   var out=[]
-  for(var i=logs.length-1;i>=0;i--){
-    var id=logs[i].args.id
+  // Newest first, and capped so this stays fast as the contract fills up.
+  var lowest=Math.max(1,next-300)
+  for(var id=next-1;id>=lowest;id--){
     try{
       var e=await esc.getEscrow(id)
+      if(e.sender===ethers.ZeroAddress)continue
       out.push({
-        id:id.toString(),
+        id:String(id),
         sender:e.sender,recipient:e.recipient,token:e.token,
         amount:parseFloat(ethers.formatUnits(e.amount,6)),
-        original:parseFloat(ethers.formatUnits(logs[i].args.amount,6)),
         deadline:Number(e.deadline)*1000,
         status:ST[Number(e.status)]||'none',
         descriptionHash:e.descriptionHash
@@ -2020,6 +2003,14 @@ async function fetchChainEscrows(mode){
     }catch(err){}
   }
   return out
+}
+
+async function fetchChainEscrows(mode){
+  var me=walletAddress.toLowerCase()
+  var all=await readAllEscrows()
+  return all.filter(function(e){
+    return mode==='sent' ? e.sender.toLowerCase()===me : e.recipient.toLowerCase()===me
+  })
 }
 
 // Descriptions live off-chain. Fetch and verify them against the on-chain hash.
@@ -2095,7 +2086,7 @@ function renderEscrowList(c,rows,mode){
      +'<div style="min-width:0"><div style="font-size:.9375rem;font-weight:600">'+descLine+'</div>'
      +'<div style="font-size:.75rem;color:var(--t4);margin-top:2px">'+(mode==='sent'?'To ':'From ')+'<span class="mono">'+shortAddr(other)+'</span> · #'+e.id+'</div></div>'
      +'<span class="pill '+st[0]+'">'+st[1]+'</span></div>'
-     +'<div class="drow"><span class="drow-l">Amount</span><span class="drow-v mono">'+(e.amount>0?e.amount:e.original)+' USDC</span></div>'
+     +'<div class="drow"><span class="drow-l">Amount</span><span class="drow-v mono">'+e.amount+' USDC</span></div>'
      +'<div class="drow"><span class="drow-l">Deadline</span><span class="drow-v mono" style="font-size:.75rem">'+new Date(e.deadline).toLocaleString()+'</span></div>'
      +'<div class="drow"><span class="drow-l">Held by</span><a class="drow-v mono am" style="font-size:.75rem" href="'+EXP+'/address/'+EC+'" target="_blank" rel="noopener">Contract ↗</a></div>'
      +act+'<div class="msg" id="eM'+e.id+'"></div></div>'
@@ -2219,12 +2210,11 @@ async function loadAdminDisputes(){
   c.innerHTML='<div class="blank">Loading</div>'
   try{
     var esc=new ethers.Contract(EC,EABI,readProvider)
-    var logs=await scanLogs(esc,esc.filters.EscrowCreated())
+    var all=await readAllEscrows()
     var disputed=[]
-    for(var i=0;i<logs.length;i++){
-      var id=logs[i].args.id
-      var e=await esc.getEscrow(id)
-      if(Number(e.status)===5)disputed.push({id:id.toString(),e:e})
+    for(var i=0;i<all.length;i++){
+      if(all[i].status!=='disputed')continue
+      disputed.push({id:all[i].id,e:await esc.getEscrow(all[i].id)})
     }
     if(!disputed.length){c.innerHTML='<div class="blank"><svg><use href="#i-check"/></svg><div class="blank-t">No open disputes</div><div class="blank-s">Everything has settled on its own.</div></div>';return}
     var html=''
