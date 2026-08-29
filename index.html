@@ -1085,7 +1085,7 @@ function go(page,skipH){
   if(page==='escrow'){
     $('escrowBellWrap').style.display='block'
     if(localStorage.getItem('novadex_escrow_howitworks_dismissed')==='true')$('escrowHowItWorks').style.display='none'
-    if(connected){loadEscrowUSDCBal();loadEscrowNotifications();if(!window._nt)window._nt=setInterval(loadEscrowNotifications,60000)}
+    if(connected){loadEscrowUSDCBal();loadEscrowNotifications();startEscrowPolling()}
   }
   if(page==='admin'&&adminUnlocked)loadAdminDisputes()
 }
@@ -1098,7 +1098,7 @@ function refreshCurrentPageData(){
     loadEscrowUSDCBal();loadEscrowNotifications()
     if($('escrowSentPanel').style.display==='block')loadEscrowSent()
     if($('escrowReceivedPanel').style.display==='block')loadEscrowReceived()
-    if(!window._nt)window._nt=setInterval(loadEscrowNotifications,60000)
+    startEscrowPolling()
   }
 }
 
@@ -1315,6 +1315,8 @@ async function connectWithProvider(target,walletName,silent){
       target.on('chainChanged',function(){verifyChain();fetchBals();updateQuote();refreshCurrentPageData()})
     }
     fetchBals();updateQuote();renderHistory();refreshCurrentPageData()
+    $('escrowBellWrap').style.display='block'
+    loadEscrowNotifications();startEscrowPolling()
     if($('leaderboardPage').classList.contains('on'))renderLeaderboard()
   }catch(err){
     if(!silent)msg('walletModalStatus',chainErrCode(err)===4001?'Connection request rejected.':'Could not connect: '+(err.message||err),'err')
@@ -1354,6 +1356,7 @@ function disconnectWallet(){
   window._activeProvider=null;showNetworkBanner(false)
   lastQuoteRaw=null;lastQuoteLive=false
   if(window._nt){clearInterval(window._nt);window._nt=null}
+  _escCache={ids:null,at:0}
   var d=$('escrowBellDot');if(d)d.style.display='none'
   var bw=$('escrowBellWrap');if(bw)bw.style.display='none'
   localStorage.removeItem('novadex_wallet_connected');localStorage.removeItem('novadex_wallet_name')
@@ -1983,7 +1986,11 @@ function escErr(e){
 // eth_call instead. No log queries, no range limits.
 var _escCache={ids:null,at:0}
 
-async function readAllEscrows(){
+async function readAllEscrows(force){
+  // sent and received both need the full list; enumerating twice doubles RPC
+  // load for no benefit, so reuse a short-lived cache.
+  var now=Date.now()
+  if(!force&&_escCache.ids&&(now-_escCache.at)<15000)return _escCache.ids
   var esc=new ethers.Contract(EC,EABI,readProvider)
   var next=Number(await esc.nextId())
   var out=[]
@@ -2003,12 +2010,13 @@ async function readAllEscrows(){
       })
     }catch(err){}
   }
+  _escCache={ids:out,at:Date.now()}
   return out
 }
 
-async function fetchChainEscrows(mode){
+async function fetchChainEscrows(mode,force){
   var me=walletAddress.toLowerCase()
-  var all=await readAllEscrows()
+  var all=await readAllEscrows(force)
   return all.filter(function(e){
     return mode==='sent' ? e.sender.toLowerCase()===me : e.recipient.toLowerCase()===me
   })
@@ -2063,6 +2071,7 @@ async function afterTx(rec){
 }
 
 async function refreshEscrowViews(){
+  _escCache={ids:null,at:0}
   await loadEscrowUSDCBal()
   if($('escrowSentPanel').style.display==='block')await loadEscrowSent()
   if($('escrowReceivedPanel').style.display==='block')await loadEscrowReceived()
@@ -2169,6 +2178,21 @@ async function escrowSubmitEvidence(id){
   }catch(e){if(b){b.disabled=false;b.textContent='Submit evidence'}msg(s,e.message,'err')}
 }
 
+// Notifications should arrive without the user hunting for them, so poll
+// whenever a wallet is connected rather than only on the escrow page, and
+// refresh immediately when the tab regains focus after a wallet action.
+function startEscrowPolling(){
+  if(window._nt)return
+  window._nt=setInterval(function(){ if(connected)loadEscrowNotifications() },20000)
+  if(!window._ntFocus){
+    window._ntFocus=true
+    window.addEventListener('focus',function(){ if(connected)loadEscrowNotifications() })
+    document.addEventListener('visibilitychange',function(){
+      if(!document.hidden&&connected)loadEscrowNotifications()
+    })
+  }
+}
+
 async function loadEscrowNotifications(){
   if(!connected||!walletAddress)return
   try{
@@ -2176,16 +2200,16 @@ async function loadEscrowNotifications(){
     var recv=await fetchChainEscrows('received')
     var items=[],now=Date.now()
     sent.forEach(function(e){
-      if(e.status==='delivered')items.push({t:'act',x:shortAddr(e.recipient)+' marked #'+e.id+' delivered. Release '+e.amount+' USDC or dispute.',d:e.deadline})
-      if(e.status==='released')items.push({t:'info',x:'Escrow #'+e.id+' settled to '+shortAddr(e.recipient),d:e.deadline})
-      if(e.status==='refunded')items.push({t:'info',x:'Escrow #'+e.id+' refunded to you',d:e.deadline})
+      if(e.status==='delivered')items.push({t:'act',x:shortAddr(e.recipient)+' marked #'+e.id+' delivered. Release '+escAmount(e)+' USDC or dispute.',d:e.deadline})
+      if(e.status==='released')items.push({t:'info',x:'Escrow #'+e.id+' settled '+escAmount(e)+' USDC to '+shortAddr(e.recipient),d:e.deadline})
+      if(e.status==='refunded')items.push({t:'info',x:escAmount(e)+' USDC refunded to you from escrow #'+e.id,d:e.deadline})
       if(e.status==='disputed')items.push({t:'act',x:'Escrow #'+e.id+' is in dispute. Submit your evidence.',d:e.deadline})
       if(e.status==='funded'&&now>e.deadline)items.push({t:'act',x:'Escrow #'+e.id+' expired undelivered. Settle to get your funds back.',d:e.deadline})
     })
     recv.forEach(function(e){
-      if(e.status==='funded')items.push({t:'act',x:shortAddr(e.sender)+' funded '+e.amount+' USDC. Mark #'+e.id+' delivered when done.',d:e.deadline})
+      if(e.status==='funded')items.push({t:'act',x:shortAddr(e.sender)+' funded '+escAmount(e)+' USDC. Mark #'+e.id+' delivered when done.',d:e.deadline})
       if(e.status==='delivered'&&now>e.deadline)items.push({t:'act',x:'Escrow #'+e.id+' is past its deadline. Settle to claim your funds.',d:e.deadline})
-      if(e.status==='released')items.push({t:'info',x:'Received '+e.amount+' USDC from escrow #'+e.id,d:e.deadline})
+      if(e.status==='released')items.push({t:'info',x:'Received '+escAmount(e)+' USDC from escrow #'+e.id,d:e.deadline})
       if(e.status==='disputed')items.push({t:'act',x:'Escrow #'+e.id+' is in dispute. Submit your evidence.',d:e.deadline})
     })
     items.sort(function(a,b){return b.d-a.d})
