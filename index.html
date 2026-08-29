@@ -886,6 +886,9 @@ const SBK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6
 const SBH={'Content-Type':'application/json','apikey':SBK,'Authorization':'Bearer '+SBK}
 const API='https://novaonarc.xyz/api'
 const EC='0x76D4694De06Bb3A3CDf39207FE27eD8A39EC1202'
+// Block the escrow contract was deployed in. Scanning from 0 asks the RPC for
+// ~59M blocks, which Alchemy rejects with a 400.
+const EC_BLOCK=59271942
 const EABI=[
  'function createEscrow(address recipient,address token,uint256 amount,uint64 duration,bytes32 descriptionHash) returns (uint256)',
  'function markDelivered(uint256 id)',
@@ -1972,13 +1975,34 @@ function escErr(e){
   return r
 }
 
+
+// Providers cap how many blocks one eth_getLogs may cover. Walk the range in
+// chunks and shrink the window if the provider still complains, so this keeps
+// working as the chain grows without needing to know the exact limit.
+async function scanLogs(contract,filter){
+  var latest=await readProvider.getBlockNumber()
+  var from=EC_BLOCK,chunk=10000,out=[]
+  while(from<=latest){
+    var to=Math.min(from+chunk-1,latest)
+    try{
+      var logs=await contract.queryFilter(filter,from,to)
+      out=out.concat(logs)
+      from=to+1
+    }catch(e){
+      if(chunk>500){chunk=Math.floor(chunk/4);continue}
+      throw e
+    }
+  }
+  return out
+}
+
 // Reads escrows straight from the chain via events, then live status per id.
 async function fetchChainEscrows(mode){
   var esc=new ethers.Contract(EC,EABI,readProvider)
   var filter=mode==='sent'
     ? esc.filters.EscrowCreated(null,walletAddress,null)
     : esc.filters.EscrowCreated(null,null,walletAddress)
-  var logs=await esc.queryFilter(filter,0,'latest')
+  var logs=await scanLogs(esc,filter)
   var out=[]
   for(var i=logs.length-1;i>=0;i--){
     var id=logs[i].args.id
@@ -2195,7 +2219,7 @@ async function loadAdminDisputes(){
   c.innerHTML='<div class="blank">Loading</div>'
   try{
     var esc=new ethers.Contract(EC,EABI,readProvider)
-    var logs=await esc.queryFilter(esc.filters.EscrowCreated(),0,'latest')
+    var logs=await scanLogs(esc,esc.filters.EscrowCreated())
     var disputed=[]
     for(var i=0;i<logs.length;i++){
       var id=logs[i].args.id
