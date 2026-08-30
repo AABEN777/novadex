@@ -716,7 +716,7 @@ textarea.inp{resize:vertical;min-height:78px;line-height:1.5}
       <div class="drow"><span class="drow-l">Router, swaps</span><a class="drow-v mono" style="font-size:.75rem;color:var(--am)" href="https://testnet.arcscan.app/address/0x7ae6DE7aD0E7e5C8802c9a9B4Cedf258D792e3a5" target="_blank" rel="noopener">0x7ae6…e3a5</a></div>
       <div class="drow"><span class="drow-l">Router, liquidity</span><a class="drow-v mono" style="font-size:.75rem;color:var(--am)" href="https://testnet.arcscan.app/address/0xA3E49f3B007C15076ca73e71A896F5EC86C596Bf" target="_blank" rel="noopener">0xA3E4…96Bf</a></div>
       <div class="drow"><span class="drow-l">Lending</span><a class="drow-v mono" style="font-size:.75rem;color:var(--am)" href="https://testnet.arcscan.app/address/0xe150cfB9E2F702A13F5B5cC68A23681d34b7b384" target="_blank" rel="noopener">0xe150…b384</a></div>
-      <div class="drow"><span class="drow-l">Escrow wallet</span><a class="drow-v mono" style="font-size:.75rem;color:var(--am)" href="https://testnet.arcscan.app/address/0x2c0cf9ea8f19eb05a4051f5c27b0d18dd6cc2e3c" target="_blank" rel="noopener">0x2c0c…2e3c</a></div>
+      <div class="drow"><span class="drow-l">Escrow</span><a class="drow-v mono" style="font-size:.75rem;color:var(--am)" href="https://testnet.arcscan.app/address/0x76D4694De06Bb3A3CDf39207FE27eD8A39EC1202" target="_blank" rel="noopener">0x76D4…1202</a></div>
     </div>
   </div>
 </div>
@@ -2098,17 +2098,17 @@ function renderEscrowList(c,rows,mode){
     var past=now>e.deadline
     var act=''
     if(e.status==='funded'){
-      if(mode==='received')act='<button class="btn-main" id="eA'+e.id+'" onclick="escAct('+e.id+',\'markDelivered\')">Mark as delivered</button>'
+      if(mode==='received')act='<button class="btn-main" id="eA'+e.id+'_markDelivered" onclick="escAct('+e.id+',\'markDelivered\')">Mark as delivered</button>'
       else act='<div class="note">Waiting for the recipient to mark this delivered. If the deadline passes undelivered, your funds return to you automatically.</div>'
-      if(past)act+='<button class="btn-2" onclick="escAct('+e.id+',\'settle\')">Settle now (deadline passed)</button>'
+      if(past)act+='<button class="btn-2" id="eA'+e.id+'_settle" onclick="escAct('+e.id+',\'settle\')">Settle now (deadline passed)</button>'
     }else if(e.status==='delivered'){
       if(mode==='sent'){
-        act='<button class="btn-main" id="eA'+e.id+'" onclick="escAct('+e.id+',\'confirmAndRelease\')">Release funds</button>'
-           +'<button class="btn-2" onclick="escAct('+e.id+',\'dispute\')" style="color:var(--rose);border-color:var(--rose)">Raise a dispute</button>'
+        act='<button class="btn-main" id="eA'+e.id+'_confirmAndRelease" onclick="escAct('+e.id+',\'confirmAndRelease\')">Release funds</button>'
+           +'<button class="btn-2" id="eA'+e.id+'_dispute" onclick="escAct('+e.id+',\'dispute\')" style="color:var(--rose);border-color:var(--rose)">Raise a dispute</button>'
       }else{
         act='<div class="note">Delivered. The sender can release now, or it settles to you automatically after the deadline.</div>'
       }
-      if(past)act+='<button class="btn-2" onclick="escAct('+e.id+',\'settle\')">Settle now (deadline passed)</button>'
+      if(past)act+='<button class="btn-2" id="eA'+e.id+'_settle" onclick="escAct('+e.id+',\'settle\')">Settle now (deadline passed)</button>'
     }else if(e.status==='disputed'){
       act='<div class="note-w">'+(mode==='received'?'The sender disputed this. Add proof you delivered and the arbitrator will decide.':'You disputed this. Add anything supporting your side.')+'</div>'
        +'<div style="margin-top:10px"><textarea class="inp" id="eT'+e.id+'" placeholder="What happened, in your own words"></textarea>'
@@ -2141,7 +2141,7 @@ var ACTASK={
 async function escAct(id,fn){
   if(!connected){openWalletPicker();return}
   if(ACTASK[fn]&&!confirm(ACTASK[fn]))return
-  var btn=$('eA'+id),box='eM'+id
+  var btn=$('eA'+id+'_'+fn),box='eM'+id
   if(btn){btn.disabled=true;btn.textContent='Confirm in your wallet…'}
   msg(box,'Confirm the transaction in your wallet','wait')
   try{
