@@ -638,9 +638,9 @@ textarea.inp{resize:vertical;min-height:78px;line-height:1.5}
           <button class="modal-x" id="escrowHowItWorksClose" style="width:24px;height:24px" aria-label="Hide"><svg style="width:12px;height:12px"><use href="#i-x"/></svg></button>
         </div>
         <div style="display:grid;gap:11px">
-          <div style="display:flex;gap:11px"><span class="mono" style="color:var(--am);font-size:.75rem;font-weight:600;padding-top:1px">01</span><span style="font-size:.8125rem;color:var(--t2);line-height:1.5">You deposit USDC into a Circle-managed wallet. It leaves your wallet but does not reach theirs.</span></div>
+          <div style="display:flex;gap:11px"><span class="mono" style="color:var(--am);font-size:.75rem;font-weight:600;padding-top:1px">01</span><span style="font-size:.8125rem;color:var(--t2);line-height:1.5">You deposit USDC into the escrow contract. It leaves your wallet but does not reach theirs, and no one, including NovaDEX, can move it.</span></div>
           <div style="display:flex;gap:11px"><span class="mono" style="color:var(--am);font-size:.75rem;font-weight:600;padding-top:1px">02</span><span style="font-size:.8125rem;color:var(--t2);line-height:1.5">They mark the work delivered. You confirm. The funds release the moment both agree.</span></div>
-          <div style="display:flex;gap:11px"><span class="mono" style="color:var(--am);font-size:.75rem;font-weight:600;padding-top:1px">03</span><span style="font-size:.8125rem;color:var(--t2);line-height:1.5">If the deadline passes, funds settle to whoever actually held up their end. Nobody stays stuck.</span></div>
+          <div style="display:flex;gap:11px"><span class="mono" style="color:var(--am);font-size:.75rem;font-weight:600;padding-top:1px">03</span><span style="font-size:.8125rem;color:var(--t2);line-height:1.5">If the deadline passes, the contract settles to whoever held up their end. Nobody stays stuck, and it happens without us.</span></div>
           <div style="display:flex;gap:11px"><span class="mono" style="color:var(--am);font-size:.75rem;font-weight:600;padding-top:1px">04</span><span style="font-size:.8125rem;color:var(--t2);line-height:1.5">Disagree? Raise a dispute and both sides submit evidence for review.</span></div>
         </div>
       </div>
@@ -2194,8 +2194,10 @@ function startEscrowPolling(){
 async function loadEscrowNotifications(){
   if(!connected||!walletAddress)return
   try{
-    var sent=await fetchChainEscrows('sent')
-    var recv=await fetchChainEscrows('received')
+    // Enrich exactly like the history list. Without this, settled escrows have
+    // no stored amount to fall back on and render as a dash.
+    var sent=await attachDescriptions(await fetchChainEscrows('sent'))
+    var recv=await attachDescriptions(await fetchChainEscrows('received'))
     var items=[],now=Date.now()
     sent.forEach(function(e){
       if(e.status==='delivered')items.push({t:'act',x:shortAddr(e.recipient)+' marked #'+e.id+' delivered. Release '+escAmount(e)+' USDC or dispute.',d:e.deadline})
