@@ -549,11 +549,18 @@ textarea.inp{resize:vertical;min-height:78px;line-height:1.5}
           <div class="fld-l"><span>Pool</span></div>
           <select class="inp" id="removePoolSelect"><option value="USDC-EURC">USDC / EURC</option><option value="USDC-cirBTC">USDC / cirBTC</option><option value="EURC-cirBTC">EURC / cirBTC</option></select>
         </div>
-        <div style="text-align:center;padding:8px 0 4px"><span class="mono" style="font-size:2.25rem;font-weight:500;letter-spacing:-.03em" id="removePct">50%</span></div>
+        <div class="drow"><span class="drow-l">Your position</span><span class="drow-v mono" id="removeLpBal">—</span></div>
+        <div style="text-align:center;padding:10px 0 2px"><span class="mono" style="font-size:2.25rem;font-weight:500;letter-spacing:-.03em" id="removePct">50%</span></div>
         <input type="range" id="removeSlider" min="1" max="100" value="50" style="width:100%;accent-color:var(--am);margin:8px 0 4px"/>
-        <div class="drow"><span class="drow-l">Withdrawing</span><span class="drow-v mono" id="removeAmt">50% of position</span></div>
-        <div class="note-w">Withdrawals unlock with the next contract upgrade. Your liquidity stays safe and keeps earning fees in the meantime.</div>
-        <button class="btn-main" id="removeLiqBtn" disabled>Withdrawals not yet available</button>
+        <div style="display:flex;gap:6px;margin:6px 0 12px">
+          <button class="btn-2" style="margin:0;height:32px;font-size:.8125rem" data-pct="25">25%</button>
+          <button class="btn-2" style="margin:0;height:32px;font-size:.8125rem" data-pct="50">50%</button>
+          <button class="btn-2" style="margin:0;height:32px;font-size:.8125rem" data-pct="75">75%</button>
+          <button class="btn-2" style="margin:0;height:32px;font-size:.8125rem" data-pct="100">Max</button>
+        </div>
+        <div class="drow"><span class="drow-l">You receive</span><span class="drow-v mono" id="removeOut0">—</span></div>
+        <div class="drow"><span class="drow-l"></span><span class="drow-v mono" id="removeOut1">—</span></div>
+        <button class="btn-main" id="removeLiqBtn">Withdraw</button>
         <div class="msg" id="removeLiqStatus"></div>
       </div>
     </div>
@@ -712,9 +719,8 @@ textarea.inp{resize:vertical;min-height:78px;line-height:1.5}
     </div>
     <div class="card">
       <div class="eyebrow" style="margin-bottom:12px">Deployed contracts</div>
-      <div class="drow"><span class="drow-l">Factory</span><a class="drow-v mono" style="font-size:.75rem;color:var(--am)" href="https://testnet.arcscan.app/address/0xd7EB001b35373353f0d52E1AEf9a597051034A1F" target="_blank" rel="noopener">0xd7EB…4A1F</a></div>
-      <div class="drow"><span class="drow-l">Router, swaps</span><a class="drow-v mono" style="font-size:.75rem;color:var(--am)" href="https://testnet.arcscan.app/address/0x7ae6DE7aD0E7e5C8802c9a9B4Cedf258D792e3a5" target="_blank" rel="noopener">0x7ae6…e3a5</a></div>
-      <div class="drow"><span class="drow-l">Router, liquidity</span><a class="drow-v mono" style="font-size:.75rem;color:var(--am)" href="https://testnet.arcscan.app/address/0xA3E49f3B007C15076ca73e71A896F5EC86C596Bf" target="_blank" rel="noopener">0xA3E4…96Bf</a></div>
+      <div class="drow"><span class="drow-l">Factory</span><a class="drow-v mono" style="font-size:.75rem;color:var(--am)" href="https://testnet.arcscan.app/address/0x193568e127799c91943306cA4A46e692C44959e6" target="_blank" rel="noopener">0x1935…59e6</a></div>
+      <div class="drow"><span class="drow-l">Router</span><a class="drow-v mono" style="font-size:.75rem;color:var(--am)" href="https://testnet.arcscan.app/address/0x1e1CfC58F0C59CCCcbbAA444c6f758E34781c624" target="_blank" rel="noopener">0x1e1C…c624</a></div>
       <div class="drow"><span class="drow-l">Lending</span><a class="drow-v mono" style="font-size:.75rem;color:var(--am)" href="https://testnet.arcscan.app/address/0xe150cfB9E2F702A13F5B5cC68A23681d34b7b384" target="_blank" rel="noopener">0xe150…b384</a></div>
       <div class="drow"><span class="drow-l">Escrow</span><a class="drow-v mono" style="font-size:.75rem;color:var(--am)" href="https://testnet.arcscan.app/address/0x76D4694De06Bb3A3CDf39207FE27eD8A39EC1202" target="_blank" rel="noopener">0x76D4…1202</a></div>
     </div>
@@ -862,9 +868,13 @@ textarea.inp{resize:vertical;min-height:78px;line-height:1.5}
 if(window.location.hostname==='novadex-opal.vercel.app'){
   window.location.replace('https://novaonarc.xyz'+window.location.pathname+window.location.search+window.location.hash)
 }
-const RS='0x7ae6DE7aD0E7e5C8802c9a9B4Cedf258D792e3a5'
-const RL='0xA3E49f3B007C15076ca73e71A896F5EC86C596Bf'
-const FC='0xd7EB001b35373353f0d52E1AEf9a597051034A1F'
+// AMM v2. One Router now handles both swaps and liquidity; the previous build
+// split them because the liquidity path was broken. LP tokens are minted to the
+// provider, so withdrawals actually work.
+const RT='0x1e1CfC58F0C59CCCcbbAA444c6f758E34781c624'
+const RS=RT
+const RL=RT
+const FC='0x193568e127799c91943306cA4A46e692C44959e6'
 const LC='0xe150cfB9E2F702A13F5B5cC68A23681d34b7b384'
 const MC='0x5294E9927c3306DcBaDb03fe70b92e01cCede505'
 const TK={
@@ -875,9 +885,20 @@ const TK={
 const ARC_ID=5042002,ARC_HEX='0x4CEF52',RPC='https://arc-testnet.g.alchemy.com/v2/alch_osrGh-9nVHo31oGJ3unB3',EXP='https://testnet.arcscan.app'
 const E20=['function approve(address,uint256) returns(bool)','function allowance(address,address) view returns(uint256)','function balanceOf(address) view returns(uint256)','function decimals() view returns(uint8)']
 const RSA=['function swap(address,address,uint256,uint256,address) returns(uint256)','function getAmountOut(address,address,uint256) view returns(uint256)']
-const RLA=['function addLiquidity(address,address,uint256,uint256) returns(address)']
+const RLA=[
+ 'function addLiquidity(address,address,uint256,uint256) returns(address)',
+ 'function removeLiquidity(address,address,uint256) returns(uint256,uint256)',
+ 'function getPosition(address,address,address) view returns(uint256,uint256,uint256,uint256)',
+ 'function getLPValue(address,address,uint256) view returns(uint256,uint256)'
+]
 const FCA=['function getPair(address,address) view returns(address)']
-const PRA=['function getReserves() view returns(uint256,uint256)','function totalSupply() view returns(uint256)']
+const PRA=[
+ 'function getReserves() view returns(uint256,uint256)',
+ 'function totalSupply() view returns(uint256)',
+ 'function balanceOf(address) view returns(uint256)',
+ 'function approve(address,uint256) returns(bool)',
+ 'function allowance(address,address) view returns(uint256)'
+]
 const LDA=['function depositCollateral(uint256)','function withdrawCollateral(uint256)','function borrow(address,uint256)','function repayToken(address)','function repayAll()','function getLoan(address,address) view returns(uint256,uint256,uint256,bool)','function getHealthFactor(address) view returns(uint256)','function getPoolBalance(address) view returns(uint256)','function collateral(address) view returns(uint256)','function getTotalDebtUSD(address) view returns(uint256)']
 const MMA=['function memo(address,bytes,bytes32,bytes) external']
 const SR={'USDC-EURC':0.92,'EURC-USDC':1.087,'USDC-cirBTC':0.000015,'cirBTC-USDC':66000,'EURC-cirBTC':0.000014,'cirBTC-EURC':71000}
@@ -999,11 +1020,18 @@ window.addEventListener('DOMContentLoaded',function(){
   on('maxBtn','click',setMax)
 
   on('liqAddTab','click',function(){setLiqTab('add')})
-  on('liqRemoveTab','click',function(){setLiqTab('remove')})
+  on('liqRemoveTab','click',function(){setLiqTab('remove');loadRemoveInfo()})
   on('liqShareTab','click',function(){setLiqTab('share');loadPoolShare()})
   on('addLiqBtn','click',addLiquidity)
   on('addPoolSelect','change',updateLiqLabels)
-  on('removeSlider','input',function(){$('removePct').textContent=this.value+'%';$('removeAmt').textContent=this.value+'% of position'})
+  on('removeSlider','input',function(){$('removePct').textContent=this.value+'%';updateRemovePreview()})
+  document.querySelectorAll('[data-pct]').forEach(function(b){
+    b.addEventListener('click',function(){
+      $('removeSlider').value=b.dataset.pct
+      $('removePct').textContent=b.dataset.pct+'%'
+      updateRemovePreview()
+    })
+  })
 
   on('lendDepositTab','click',function(){setLendTab('deposit')})
   on('lendBorrowTab','click',function(){setLendTab('borrow');loadPoolBal()})
@@ -1611,42 +1639,99 @@ async function addLiquidity(){
   finally{btn.disabled=false;btn.textContent='Add liquidity'}
 }
 
+// Positions now read real LP balances from the Pair, not estimates derived from
+// recorded deposits. Those estimates drifted as fees accrued.
 async function loadPoolShare(){
   var c=$('poolShareContent')
   if(!connected){c.innerHTML='<div class="blank"><svg><use href="#i-wallet"/></svg><div class="blank-t">Connect to see your positions</div><div class="blank-s">Your pool deposits and share of each pool will appear here.</div></div>';return}
   c.innerHTML='<div class="blank">Loading</div>'
   try{
-    var fc=new ethers.Contract(FC,FCA,readProvider)
+    var router=new ethers.Contract(RL,RLA,readProvider)
     var pairs=[{n:'USDC / EURC',a:'USDC',b:'EURC'},{n:'USDC / cirBTC',a:'USDC',b:'cirBTC'},{n:'EURC / cirBTC',a:'EURC',b:'cirBTC'}]
-    var ltxs=(await loadTxs()).filter(function(t){return t.type==='liquidity'&&t.action==='add'})
     var html=''
     for(var i=0;i<pairs.length;i++){
-      var p=pairs[i]
+      var pr=pairs[i]
       try{
-        var pa=await fc.getPair(TK[p.a].address,TK[p.b].address)
-        if(!pa||pa==='0x0000000000000000000000000000000000000000')continue
-        var pc=new ethers.Contract(pa,PRA,readProvider)
-        var res=await pc.getReserves(),ts=await pc.totalSupply()
-        var r0=parseFloat(ethers.formatUnits(res[0],TK[p.a].decimals))
-        var r1=parseFloat(ethers.formatUnits(res[1],TK[p.b].decimals))
-        var mine=ltxs.filter(function(t){return t.pair===p.a+'-'+p.b||t.pair===p.b+'-'+p.a})
-        var m0=mine.reduce(function(s,t){return s+(Number(t.token0===p.a?t.amount0:t.amount1)||0)},0)
-        var m1=mine.reduce(function(s,t){return s+(Number(t.token1===p.b?t.amount1:t.amount0)||0)},0)
-        var share=(ts>0n&&r0>0)?(m0/r0*100):0
-        if(m0===0&&m1===0)continue
+        var pos=await router.getPosition(walletAddress,TK[pr.a].address,TK[pr.b].address)
+        var lp=pos[0], shareBps=Number(pos[1])
+        if(lp===0n)continue
+        var amtA=parseFloat(ethers.formatUnits(pos[2],TK[pr.a].decimals))
+        var amtB=parseFloat(ethers.formatUnits(pos[3],TK[pr.b].decimals))
         html+='<div class="card" style="margin-bottom:10px">'
-          +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="font-size:.9375rem;font-weight:600">'+p.n+'</span><span class="pill wait">'+share.toFixed(2)+'% of pool</span></div>'
-          +'<div class="drow"><span class="drow-l">Your '+p.a+'</span><span class="drow-v mono am">'+m0.toFixed(4)+'</span></div>'
-          +'<div class="drow"><span class="drow-l">Your '+p.b+'</span><span class="drow-v mono am">'+m1.toFixed(6)+'</span></div>'
-          +'<div class="drow"><span class="drow-l">Pool depth</span><span class="drow-v mono">'+r0.toFixed(2)+' / '+r1.toFixed(4)+'</span></div>'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="font-size:.9375rem;font-weight:600">'+pr.n+'</span><span class="pill wait">'+(shareBps/100).toFixed(2)+'% of pool</span></div>'
+          +'<div class="drow"><span class="drow-l">Your '+pr.a+'</span><span class="drow-v mono am">'+amtA.toFixed(6)+'</span></div>'
+          +'<div class="drow"><span class="drow-l">Your '+pr.b+'</span><span class="drow-v mono am">'+amtB.toFixed(6)+'</span></div>'
+          +'<div class="drow"><span class="drow-l">LP tokens</span><span class="drow-v mono" style="font-size:.75rem">'+lp.toString()+'</span></div>'
           +'</div>'
       }catch(e){}
     }
     c.innerHTML=html||'<div class="blank"><svg><use href="#i-pool"/></svg><div class="blank-t">No positions yet</div><div class="blank-s">Add liquidity to a pool and start earning a share of swap fees.</div></div>'
-  }catch(e){c.innerHTML='<div class="blank"><div class="blank-t">Could not load positions</div><div class="blank-s">Check your connection and try again.</div></div>'}
+  }catch(e){c.innerHTML='<div class="blank"><div class="blank-t">Could not load positions</div><div class="blank-s">'+(e.shortMessage||e.message||'')+'</div></div>'}
 }
 
-// ── LENDING ───────────────────────────────────
+// ── Withdraw liquidity ────────────────────────────────────────
+var _lpBal=0n, _lpPair=null
+
+async function loadRemoveInfo(){
+  var lbl=$('removeLpBal')
+  if(!connected){if(lbl)lbl.textContent='Connect wallet';_lpBal=0n;updateRemovePreview();return}
+  var pts=$('removePoolSelect').value.split('-')
+  try{
+    var fc=new ethers.Contract(FC,FCA,readProvider)
+    _lpPair=await fc.getPair(TK[pts[0]].address,TK[pts[1]].address)
+    if(!_lpPair||_lpPair===ethers.ZeroAddress){_lpBal=0n;if(lbl)lbl.textContent='No pool yet';updateRemovePreview();return}
+    var pair=new ethers.Contract(_lpPair,PRA,readProvider)
+    _lpBal=await pair.balanceOf(walletAddress)
+    if(lbl)lbl.textContent=_lpBal===0n?'No liquidity here':(_lpBal.toString()+' LP')
+  }catch(e){_lpBal=0n;if(lbl)lbl.textContent='—'}
+  updateRemovePreview()
+}
+
+async function updateRemovePreview(){
+  var pct=parseInt($('removeSlider').value)
+  var pts=$('removePoolSelect').value.split('-')
+  var o0=$('removeOut0'), o1=$('removeOut1')
+  if(!o0)return
+  if(_lpBal===0n){o0.textContent='—';o1.textContent='';return}
+  var amt=(_lpBal*BigInt(pct))/100n
+  try{
+    var router=new ethers.Contract(RL,RLA,readProvider)
+    var v=await router.getLPValue(TK[pts[0]].address,TK[pts[1]].address,amt)
+    o0.textContent=parseFloat(ethers.formatUnits(v[0],TK[pts[0]].decimals)).toFixed(6)+' '+pts[0]
+    o1.textContent=parseFloat(ethers.formatUnits(v[1],TK[pts[1]].decimals)).toFixed(6)+' '+pts[1]
+  }catch(e){o0.textContent='—';o1.textContent=''}
+}
+
+async function removeLiquidity(){
+  if(!connected){openWalletPicker();return}
+  if(_lpBal===0n){ss('removeLiqStatus','You have no liquidity in this pool','error');return}
+  var pts=$('removePoolSelect').value.split('-')
+  var pct=parseInt($('removeSlider').value)
+  var amt=(_lpBal*BigInt(pct))/100n
+  if(amt===0n){ss('removeLiqStatus','Amount is too small to withdraw','error');return}
+
+  var btn=$('removeLiqBtn');btn.disabled=true;btn.textContent='Working…'
+  try{
+    var gp=(await provider.getFeeData()).gasPrice
+    var pair=new ethers.Contract(_lpPair,PRA,signer)
+    // The Router moves LP into the Pair, so it needs an allowance first.
+    if(await pair.allowance(walletAddress,RL)<amt){
+      ss('removeLiqStatus','Step 1 of 2 — approve your LP tokens','pending')
+      await(await pair.approve(RL,amt,{gasLimit:100000n,gasPrice:gp})).wait()
+    }
+    ss('removeLiqStatus','Step 2 of 2 — confirm the withdrawal','pending')
+    var router=new ethers.Contract(RL,RLA,signer)
+    var rec=await(await router.removeLiquidity(TK[pts[0]].address,TK[pts[1]].address,amt,{gasLimit:400000n,gasPrice:gp})).wait()
+    ss('removeLiqStatus','Withdrawn · '+rec.hash.slice(0,10)+'…','success')
+    await saveTx({type:'liquidity',action:'remove',pair:pts[0]+'-'+pts[1],token0:pts[0],token1:pts[1],amount0:0,amount1:0,hash:rec.hash,status:'success'})
+    await loadRemoveInfo()
+    fetchLiqBals();renderHistory()
+    if($('liqSharePanel').style.display==='block')loadPoolShare()
+  }catch(err){
+    ss('removeLiqStatus',(err&&err.code===4001)?'You rejected the transaction.':((err&&(err.reason||err.shortMessage||err.message))||'Failed'),'error')
+  }finally{btn.disabled=false;btn.textContent='Withdraw'}
+}
+
 function setLendTab(t){
   var P={deposit:'lendDepositPanel',borrow:'lendBorrowPanel',repay:'lendRepayPanel',position:'lendPositionPanel'}
   var T={deposit:'lendDepositTab',borrow:'lendBorrowTab',repay:'lendRepayTab',position:'lendPositionTab'}
