@@ -1,28 +1,18 @@
-const ESCROW_WALLET_ID = "d4e56011-550e-5b0f-90e6-73f2422df581";
-const USDC_TOKEN_ID = "ef87c8c3-85de-598a-af50-c5135eecfa74";
+import { ethers } from "ethers";
 
-async function releaseFunds(env, recipientAddress, amount) {
-  const createRes = await fetch("https://api.circle.com/v1/w3s/developer/transactions/transfer", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${env.CIRCLE_API_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      idempotencyKey: crypto.randomUUID(),
-      walletId: ESCROW_WALLET_ID,
-      tokenId: USDC_TOKEN_ID,
-      destinationAddress: recipientAddress,
-      amounts: [amount.toString()],
-      feeLevel: "MEDIUM",
-      entitySecretCiphertext: "PLACEHOLDER"
-    })
-  });
+const ESCROW_CONTRACT = "0x76D4694De06Bb3A3CDf39207FE27eD8A39EC1202";
+const ESCROW_ABI = [
+  "function settle(uint256 id)"
+];
 
-  const createData = await createRes.json();
-  
-  // Temporary debug — return the raw Circle response
-  return { error: true, circleResponse: createData, status: createRes.status };
+async function settleOnChain(env, escrowId) {
+  const provider = new ethers.JsonRpcProvider(env.ARC_RPC_URL);
+  const wallet = new ethers.Wallet(env.KEEPER_PRIVATE_KEY, provider);
+  const contract = new ethers.Contract(ESCROW_CONTRACT, ESCROW_ABI, wallet);
+
+  const tx = await contract.settle(escrowId);
+  const receipt = await tx.wait();
+  return receipt.hash;
 }
 
 async function claimEscrow(url, key, id, fromStatus) {
@@ -95,13 +85,25 @@ export async function onRequest(context) {
           continue;
         }
 
-        // Debug version — capture Circle response
-        const txResult = await releaseFunds(env, escrow.sender_address, escrow.amount);
-        results.push({ id: escrow.id, action: "debug", result: txResult });
+        try {
+          const txHash = await settleOnChain(env, escrow.id);
+          const newStatus = escrow.recipient_fulfilled ? "released" : "refunded";
 
-        // Always release the claim for now so we don't lock the row
-        await releaseClaim(SUPABASE_URL, SUPABASE_KEY, escrow.id, "pending");
+          await fetch(`${SUPABASE_URL}/rest/v1/escrows?id=eq.${escrow.id}`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              "apikey": SUPABASE_KEY,
+              "Authorization": `Bearer ${SUPABASE_KEY}`
+            },
+            body: JSON.stringify({ status: newStatus, release_tx_hash: txHash })
+          });
 
+          results.push({ id: escrow.id, action: newStatus, txHash });
+        } catch (txErr) {
+          await releaseClaim(SUPABASE_URL, SUPABASE_KEY, escrow.id, "pending");
+          results.push({ id: escrow.id, action: "settle-failed", error: txErr.message });
+        }
       } catch (escrowErr) {
         await releaseClaim(SUPABASE_URL, SUPABASE_KEY, escrow.id, "pending");
         results.push({ id: escrow.id, action: "error", error: escrowErr.message });
