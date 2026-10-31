@@ -575,12 +575,12 @@ textarea.inp{resize:vertical;min-height:78px;line-height:1.5}
   <div class="wrap">
     <div class="phead"><div class="phead-t serif">Lend &amp; borrow</div><div class="phead-s">Post USDC as collateral, borrow at 5% fixed</div></div>
     <div class="seg">
-      <button class="segb" id="lendDepositTab">Deposit</button>
+      <button class="segb on" id="lendDepositTab">Deposit</button>
       <button class="segb" id="lendBorrowTab">Borrow</button>
       <button class="segb" id="lendRepayTab">Repay</button>
       <button class="segb" id="lendPositionTab">Position</button>
     </div>
-    <div id="lendDepositPanel" style="display:none">
+    <div id="lendDepositPanel">
       <div class="card">
         <div class="fld">
           <div class="fld-l"><span>Collateral amount</span><span>Balance <b id="lendUSDCBal" style="color:var(--t2);font-weight:500">—</b></span></div>
@@ -625,19 +625,6 @@ textarea.inp{resize:vertical;min-height:78px;line-height:1.5}
     </div>
     <div id="lendPositionPanel" style="display:none">
       <div id="lendPositionContent"><div class="blank"><svg><use href="#i-wallet"/></svg><div class="blank-t">Connect to see your position</div><div class="blank-s">Your collateral, open loans and health factor will show here.</div></div></div>
-    </div>
-      <div class="card">
-        <div class="fld">
-          <div class="fld-l"><span>Token to supply</span></div>
-            <option value="USDC">USDC</option>
-            <option value="EURC">EURC</option>
-            <option value="cirBTC">cirBTC</option>
-          </select>
-        </div>
-        <div class="fld">
-        </div>
-        <div class="drow"><span class="drow-l">You earn</span><span class="drow-v mono">Variable interest from borrowers</span></div>
-      </div>
     </div>
   </div>
 </div>
@@ -1747,6 +1734,8 @@ async function removeLiquidity(){
 }
 
 function setLendTab(t){
+  var P={deposit:'lendDepositPanel',borrow:'lendBorrowPanel',repay:'lendRepayPanel',position:'lendPositionPanel'}
+  var T={deposit:'lendDepositTab',borrow:'lendBorrowTab',repay:'lendRepayTab',position:'lendPositionTab'}
   Object.values(P).forEach(function(i){$(i).style.display='none'})
   Object.values(T).forEach(function(i){$(i).classList.remove('on')})
   $(P[t]).style.display='block';$(T[t]).classList.add('on')
@@ -1890,24 +1879,6 @@ async function repayAllLoans(){
     loadPosition();loadRepayDetails();fetchBals();renderHistory()
   }catch(err){ss('lendRepayStatus',(err&&err.code===4001)?'You rejected the transaction.':((err&&(err.reason||err.shortMessage||err.message))||'Failed'),'error')}
   finally{btn.disabled=false;btn.textContent='Repay all and withdraw collateral'}
-}
-
-  if(!connected)return
-}
-
-  if(!connected){openWalletPicker();return}
-  try{
-    var raw=ethers.parseUnits(amt.toString(),TK[tok].decimals)
-    var gp=(await provider.getFeeData()).gasPrice
-    var tc=new ethers.Contract(TK[tok].address,E20,signer)
-    if(await tc.allowance(walletAddress,LC)<raw){
-      await(await tc.approve(LC,raw,{gasLimit:100000n,gasPrice:gp})).wait()
-    }
-    var lc=new ethers.Contract(LC,LDA.concat(['function supply(address,uint256)']),signer)
-    var rec=await(await lc.supply(TK[tok].address,raw,{gasLimit:300000n,gasPrice:gp})).wait()
-    await saveTx({type:'lending',action:'supply',token:tok,amount:amt,hash:rec.hash,status:'success'})
-  }catch(err){
-  }finally{btn.disabled=false;btn.textContent='Supply'}
 }
 
 // ── LEADERBOARD ───────────────────────────────
