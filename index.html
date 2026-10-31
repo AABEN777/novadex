@@ -575,7 +575,8 @@ textarea.inp{resize:vertical;min-height:78px;line-height:1.5}
   <div class="wrap">
     <div class="phead"><div class="phead-t serif">Lend &amp; borrow</div><div class="phead-s">Post USDC as collateral, borrow at 5% fixed</div></div>
     <div class="seg">
-      <button class="segb on" id="lendDepositTab">Deposit</button>
+      <button class="segb on" id="lendSupplyTab">Supply</button>
+      <button class="segb" id="lendDepositTab">Deposit</button>
       <button class="segb" id="lendBorrowTab">Borrow</button>
       <button class="segb" id="lendRepayTab">Repay</button>
       <button class="segb" id="lendPositionTab">Position</button>
@@ -625,6 +626,26 @@ textarea.inp{resize:vertical;min-height:78px;line-height:1.5}
     </div>
     <div id="lendPositionPanel" style="display:none">
       <div id="lendPositionContent"><div class="blank"><svg><use href="#i-wallet"/></svg><div class="blank-t">Connect to see your position</div><div class="blank-s">Your collateral, open loans and health factor will show here.</div></div></div>
+    </div>
+    <div id="lendSupplyPanel">
+      <div class="card">
+        <div class="fld">
+          <div class="fld-l"><span>Token to supply</span></div>
+          <select class="inp" id="lendSupplyToken">
+            <option value="USDC">USDC</option>
+            <option value="EURC">EURC</option>
+            <option value="cirBTC">cirBTC</option>
+          </select>
+        </div>
+        <div class="fld">
+          <div class="fld-l"><span>Amount</span><span>Balance <b id="lendSupplyBal" style="color:var(--t2);font-weight:500">—</b></span></div>
+          <input class="inp mono" type="number" id="lendSupplyAmt" placeholder="0.00" min="0" inputmode="decimal"/>
+        </div>
+        <div class="drow"><span class="drow-l">You earn</span><span class="drow-v mono">Variable interest from borrowers</span></div>
+        <button class="btn-main" id="lendSupplyBtn">Supply</button>
+        <div class="msg" id="lendSupplyStatus"></div>
+      </div>
+      <div class="note">Supply tokens to the lending pools. Borrowers can then take loans against their collateral, and you earn a share of the interest.</div>
     </div>
   </div>
 </div>
@@ -1044,6 +1065,9 @@ window.addEventListener('DOMContentLoaded',function(){
   on('lendBorrowBtn','click',borrowTokens)
   on('lendRepayBtn','click',repayLoan)
   on('lendRepayAllBtn','click',repayAllLoans)
+  on('lendSupplyTab','click',function(){setLendTab('supply');loadSupplyBal()})
+  on('lendSupplyToken','change',loadSupplyBal)
+  on('lendSupplyBtn','click',supplyTokens)
 
   on('escrowCreateTab','click',function(){setEscrowTab('create')})
   on('escrowSentTab','click',function(){setEscrowTab('sent');loadEscrowSent()})
@@ -1734,8 +1758,8 @@ async function removeLiquidity(){
 }
 
 function setLendTab(t){
-  var P={deposit:'lendDepositPanel',borrow:'lendBorrowPanel',repay:'lendRepayPanel',position:'lendPositionPanel'}
-  var T={deposit:'lendDepositTab',borrow:'lendBorrowTab',repay:'lendRepayTab',position:'lendPositionTab'}
+  var P={supply:'lendSupplyPanel',deposit:'lendDepositPanel',borrow:'lendBorrowPanel',repay:'lendRepayPanel',position:'lendPositionPanel'}
+  var T={supply:'lendSupplyTab',deposit:'lendDepositTab',borrow:'lendBorrowTab',repay:'lendRepayTab',position:'lendPositionTab'}
   Object.values(P).forEach(function(i){$(i).style.display='none'})
   Object.values(T).forEach(function(i){$(i).classList.remove('on')})
   $(P[t]).style.display='block';$(T[t]).classList.add('on')
@@ -1879,6 +1903,37 @@ async function repayAllLoans(){
     loadPosition();loadRepayDetails();fetchBals();renderHistory()
   }catch(err){ss('lendRepayStatus',(err&&err.code===4001)?'You rejected the transaction.':((err&&(err.reason||err.shortMessage||err.message))||'Failed'),'error')}
   finally{btn.disabled=false;btn.textContent='Repay all and withdraw collateral'}
+}
+
+async function loadSupplyBal(){
+  if(!connected)return
+  var tok=$('lendSupplyToken').value
+  $('lendSupplyBal').textContent=await getBal(tok)
+}
+
+async function supplyTokens(){
+  if(!connected){openWalletPicker();return}
+  var tok=$('lendSupplyToken').value
+  var amt=parseFloat($('lendSupplyAmt').value)
+  if(!amt||amt<=0){ss('lendSupplyStatus','Enter an amount','error');return}
+  var btn=$('lendSupplyBtn');btn.disabled=true;btn.textContent='Working…'
+  try{
+    var raw=ethers.parseUnits(amt.toString(),TK[tok].decimals)
+    var gp=(await provider.getFeeData()).gasPrice
+    ss('lendSupplyStatus','Approve '+tok+' in your wallet','pending')
+    var tc=new ethers.Contract(TK[tok].address,E20,signer)
+    if(await tc.allowance(walletAddress,LC)<raw){
+      await(await tc.approve(LC,raw,{gasLimit:100000n,gasPrice:gp})).wait()
+    }
+    ss('lendSupplyStatus','Confirm the supply in your wallet','pending')
+    var lc=new ethers.Contract(LC,LDA.concat(['function supply(address,uint256)']),signer)
+    var rec=await(await lc.supply(TK[tok].address,raw,{gasLimit:300000n,gasPrice:gp})).wait()
+    ss('lendSupplyStatus','Supplied '+amt+' '+tok+' to the pool','success')
+    await saveTx({type:'lending',action:'supply',token:tok,amount:amt,hash:rec.hash,status:'success'})
+    $('lendSupplyAmt').value='';loadSupplyBal();loadPoolBal();renderHistory()
+  }catch(err){
+    ss('lendSupplyStatus',(err&&err.code===4001)?'You rejected the transaction.':((err&&(err.reason||err.shortMessage||err.message))||'Failed'),'error')
+  }finally{btn.disabled=false;btn.textContent='Supply'}
 }
 
 // ── LEADERBOARD ───────────────────────────────
