@@ -6,41 +6,23 @@ async function releaseFunds(env, recipientAddress, amount) {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${env.CIRCLE_API_KEY}`,
-      "Content-Type": "application/json",
-      "X-Entity-Secret": env.CIRCLE_ENTITY_SECRET
+      "Content-Type": "application/json"
     },
     body: JSON.stringify({
+      idempotencyKey: crypto.randomUUID(),
       walletId: ESCROW_WALLET_ID,
       tokenId: USDC_TOKEN_ID,
       destinationAddress: recipientAddress,
       amounts: [amount.toString()],
-      fee: { type: "level", config: { feeLevel: "MEDIUM" } }
+      feeLevel: "MEDIUM",
+      entitySecretCiphertext: "PLACEHOLDER"
     })
   });
 
   const createData = await createRes.json();
-  const transactionId = createData?.data?.id;
-  if (!transactionId) return null;
-
-  let currentState = createData?.data?.state ?? "";
-  const terminalStates = new Set(["COMPLETE", "FAILED", "CANCELLED", "DENIED"]);
-  let txHash = null;
-
-  for (let i = 0; i < 10 && !terminalStates.has(currentState); i++) {
-    await new Promise((r) => setTimeout(r, 3000));
-    const pollRes = await fetch(`https://api.circle.com/v1/w3s/developer/transactions/${transactionId}`, {
-      headers: {
-        "Authorization": `Bearer ${env.CIRCLE_API_KEY}`,
-        "X-Entity-Secret": env.CIRCLE_ENTITY_SECRET
-      }
-    });
-    const pollData = await pollRes.json();
-    const tx = pollData?.data?.transaction;
-    currentState = tx?.state ?? "";
-    txHash = tx?.txHash ?? null;
-  }
-
-  return currentState === "COMPLETE" ? txHash : null;
+  
+  // Temporary debug — return the raw Circle response
+  return { error: true, circleResponse: createData, status: createRes.status };
 }
 
 async function claimEscrow(url, key, id, fromStatus) {
@@ -113,41 +95,13 @@ export async function onRequest(context) {
           continue;
         }
 
-        if (escrow.recipient_fulfilled) {
-          const txHash = await releaseFunds(env, escrow.recipient_address, escrow.amount);
-          if (txHash) {
-            await fetch(`${SUPABASE_URL}/rest/v1/escrows?id=eq.${escrow.id}`, {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/json",
-                "apikey": SUPABASE_KEY,
-                "Authorization": `Bearer ${SUPABASE_KEY}`
-              },
-              body: JSON.stringify({ status: "released", release_tx_hash: txHash })
-            });
-            results.push({ id: escrow.id, action: "auto-released", txHash });
-          } else {
-            await releaseClaim(SUPABASE_URL, SUPABASE_KEY, escrow.id, "pending");
-            results.push({ id: escrow.id, action: "release-failed" });
-          }
-        } else {
-          const txHash = await releaseFunds(env, escrow.sender_address, escrow.amount);
-          if (txHash) {
-            await fetch(`${SUPABASE_URL}/rest/v1/escrows?id=eq.${escrow.id}`, {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/json",
-                "apikey": SUPABASE_KEY,
-                "Authorization": `Bearer ${SUPABASE_KEY}`
-              },
-              body: JSON.stringify({ status: "refunded", release_tx_hash: txHash })
-            });
-            results.push({ id: escrow.id, action: "auto-refunded", txHash });
-          } else {
-            await releaseClaim(SUPABASE_URL, SUPABASE_KEY, escrow.id, "pending");
-            results.push({ id: escrow.id, action: "refund-failed" });
-          }
-        }
+        // Debug version — capture Circle response
+        const txResult = await releaseFunds(env, escrow.sender_address, escrow.amount);
+        results.push({ id: escrow.id, action: "debug", result: txResult });
+
+        // Always release the claim for now so we don't lock the row
+        await releaseClaim(SUPABASE_URL, SUPABASE_KEY, escrow.id, "pending");
+
       } catch (escrowErr) {
         await releaseClaim(SUPABASE_URL, SUPABASE_KEY, escrow.id, "pending");
         results.push({ id: escrow.id, action: "error", error: escrowErr.message });
